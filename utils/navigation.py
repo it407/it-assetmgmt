@@ -1,7 +1,7 @@
 # utils/navigation.py
 
 import streamlit as st
-from utils.constants import ROLE_ADMIN, ROLE_MANAGER
+from utils.gsheets import read_sheet
 
 def apply_role_based_navigation():
     user = st.session_state.get("user")
@@ -10,36 +10,36 @@ def apply_role_based_navigation():
 
     role = user["role"]
 
-    # USER → only My Assets
-    if role == "User":
-        st.markdown(
-            """
-            <style>
-            [data-testid="stSidebarNav"] li {
-                display: none;
-            }
-            [data-testid="stSidebarNav"] li:has(a[title="My Assets"]) {
-                display: block;
-            }
-            </style>
-            """,
-            unsafe_allow_html=True,
-        )
+    nav_df = read_sheet("role_navigation")
+    if nav_df.empty:
+        return
 
-    # MANAGER → dashboards only
-    elif role == ROLE_MANAGER:
-        st.markdown(
-            """
-            <style>
-            [data-testid="stSidebarNav"] li {
-                display: none;
-            }
-            [data-testid="stSidebarNav"] li:has(a[title*="Dashboard"]) {
-                display: block;
-            }
-            </style>
-            """,
-            unsafe_allow_html=True,
-        )
+    nav_df.columns = nav_df.columns.str.strip().str.lower()
 
-    # ADMIN → no restrictions
+    allowed_pages = nav_df[
+        (nav_df["role"] == role)
+        & (nav_df["is_visible"].astype(str).str.lower() == "true")
+    ]["page_title"].tolist()
+
+    if not allowed_pages:
+        return
+
+    # Build CSS allow-list
+    selectors = "\n".join(
+        [
+            f'[data-testid="stSidebarNav"] a[aria-label="{p}"] {{ display: block !important; }}'
+            for p in allowed_pages
+        ]
+    )
+
+    st.markdown(
+        f"""
+        <style>
+        [data-testid="stSidebarNav"] li {{
+            display: none;
+        }}
+        {selectors}
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
