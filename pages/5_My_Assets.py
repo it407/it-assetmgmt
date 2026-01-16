@@ -13,6 +13,9 @@ logout()
 # Page protection
 # ─────────────────────────────────────────────
 login_required()
+from utils.navigation import apply_role_based_navigation
+apply_role_based_navigation()
+
 
 user = st.session_state["user"]
 employee_id = user["employee_id"]

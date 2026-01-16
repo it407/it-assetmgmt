@@ -14,6 +14,9 @@ logout()
 # ─────────────────────────────────────────────
 login_required()
 admin_only()
+from utils.navigation import apply_role_based_navigation
+apply_role_based_navigation()
+
 
 st.title("🔐 Credentials Master")
 
