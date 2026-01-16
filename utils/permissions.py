@@ -3,6 +3,8 @@
 import streamlit as st
 from utils.auth import login
 from utils.constants import ROLE_ADMIN
+from utils.constants import ROLE_ADMIN, ROLE_MANAGER
+import streamlit as st
 
 def login_required():
     if "user" not in st.session_state:
@@ -17,6 +19,6 @@ def admin_only():
 
 def admin_or_manager_only():
     login_required()
-    if st.session_state["user"]["role"] not in ["Admin", "Manager"]:
+    if st.session_state["user"]["role"] not in [ROLE_ADMIN, ROLE_MANAGER]:
         st.error("Access restricted")
         st.stop()
