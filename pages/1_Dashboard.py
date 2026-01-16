@@ -32,12 +32,10 @@ assets_df.columns = assets_df.columns.str.strip().str.lower()
 if not assignments_df.empty:
     assignments_df.columns = assignments_df.columns.str.strip().str.lower()
 else:
-    assignments_df = pd.DataFrame(
-        columns=["asset_id", "assignment_status"]
-    )
+    assignments_df = pd.DataFrame(columns=["asset_id", "assignment_status"])
 
 # ─────────────────────────────────────────────
-# FILTERS (Category & Location)
+# Filters
 # ─────────────────────────────────────────────
 st.subheader("🔎 Filters")
 
@@ -57,7 +55,6 @@ with col2:
         default=sorted(assets_df["location"].dropna().unique().tolist())
     )
 
-# Apply filters
 filtered_assets_df = assets_df[
     assets_df["category"].isin(category_filter)
     & assets_df["location"].isin(location_filter)
@@ -68,33 +65,43 @@ if filtered_assets_df.empty:
     st.stop()
 
 # ─────────────────────────────────────────────
-# DuckDB aggregation (SAFE)
+# DuckDB aggregation
 # ─────────────────────────────────────────────
 con = duckdb.connect(database=":memory:")
 
 con.register("assets_master", filtered_assets_df)
 
-assigned_only_df = (
+assigned_df = (
     assignments_df[assignments_df["assignment_status"] == "Assigned"]
     if not assignments_df.empty
     else assignments_df
 )
 
-con.register("asset_assignments", assigned_only_df[["asset_id"]])
+con.register("asset_assignments", assigned_df[["asset_id"]])
 
 query = """
 SELECT
-    MIN(am.asset_id) AS asset_id,
     am.category,
     'Qty' AS asset_type,
     COUNT(*) AS total_qty,
+
+    /* Inactive / Damaged assets */
+    SUM(
+        CASE 
+            WHEN am.is_active = FALSE THEN 1 
+            ELSE 0 
+        END
+    ) AS out_of_service_qty,
+
+    /* Currently assigned assets */
+    COUNT(a.asset_id) AS total_assigned,
+
+    /* Available assets */
     COUNT(*) 
         - SUM(CASE WHEN am.is_active = FALSE THEN 1 ELSE 0 END)
         - COUNT(a.asset_id)
         AS available_qty,
-    SUM(CASE WHEN am.is_active = FALSE THEN 1 ELSE 0 END)
-        AS out_of_service_qty,
-    COUNT(a.asset_id) AS total_assigned,
+
     am.location
 FROM assets_master am
 LEFT JOIN asset_assignments a
