@@ -12,19 +12,29 @@ def apply_role_based_navigation():
 
     nav_df = read_sheet("role_navigation")
     if nav_df.empty:
+        # ❌ Never hide everything if config missing
         return
 
     nav_df.columns = nav_df.columns.str.strip().str.lower()
 
+    # Normalize is_visible safely
+    nav_df["is_visible"] = (
+        nav_df["is_visible"]
+        .astype(str)
+        .str.lower()
+        .isin(["true", "1", "yes"])
+    )
+
     allowed_pages = nav_df[
         (nav_df["role"] == role)
-        & (nav_df["is_visible"].astype(str).str.lower() == "true")
+        & (nav_df["is_visible"] == True)
     ]["page_title"].tolist()
 
+    # 🔐 SAFETY GUARD
     if not allowed_pages:
+        # Do NOT apply CSS → prevents blank sidebar
         return
 
-    # Build CSS allow-list
     selectors = "\n".join(
         [
             f'[data-testid="stSidebarNav"] a[aria-label="{p}"] {{ display: block !important; }}'
