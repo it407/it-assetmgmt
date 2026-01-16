@@ -1,15 +1,12 @@
-# pages/3_Assign_Asset.py
+# pages/2_Assets.py
 
 import streamlit as st
 import pandas as pd
 from datetime import datetime
 
 from utils.permissions import login_required, admin_only
-from utils.gsheets import read_sheet, append_row, write_sheet
-from utils.constants import (
-    ASSETS_MASTER_SHEET,
-    ASSET_ASSIGNMENTS_SHEET
-)
+from utils.gsheets import read_sheet, append_row
+from utils.constants import ASSETS_MASTER_SHEET
 
 # ─────────────────────────────────────────────
 # Page protection
@@ -17,145 +14,108 @@ from utils.constants import (
 login_required()
 admin_only()
 
-st.title("🔗 Assign Asset (Unit Based)")
+st.title("🖨️ Asset Submission (Unit-Based)")
 
 # ─────────────────────────────────────────────
-# Load data
+# Load assets
 # ─────────────────────────────────────────────
 assets_df = read_sheet(ASSETS_MASTER_SHEET)
-assignments_df = read_sheet(ASSET_ASSIGNMENTS_SHEET)
-employees_df = read_sheet("employee_master")
 
-# Normalize
-for df in [assets_df, assignments_df, employees_df]:
-    if not df.empty:
-        df.columns = df.columns.str.strip().str.lower()
+if not assets_df.empty:
+    assets_df.columns = assets_df.columns.str.strip().str.lower()
 
 # ─────────────────────────────────────────────
-# Guard empty master data
+# SAFE asset_id generator
 # ─────────────────────────────────────────────
-if assets_df.empty:
-    st.error("No assets available. Please add assets first.")
-    st.stop()
+def get_next_asset_ids(existing_df: pd.DataFrame, qty: int):
+    if existing_df.empty or "asset_id" not in existing_df.columns:
+        start = 1
+    else:
+        valid_ids = existing_df[
+            existing_df["asset_id"]
+            .astype(str)
+            .str.startswith("AST-")
+        ].copy()
 
-if employees_df.empty:
-    st.error("No employees found.")
-    st.stop()
+        if valid_ids.empty:
+            start = 1
+        else:
+            valid_ids["num"] = (
+                valid_ids["asset_id"]
+                .astype(str)
+                .str.replace("AST-", "", regex=False)
+                .str.strip()
+                .astype(int)
+            )
+            start = valid_ids["num"].max() + 1
 
-# ─────────────────────────────────────────────
-# Determine currently assigned assets
-# ─────────────────────────────────────────────
-if assignments_df.empty:
-    assigned_asset_ids = []
-else:
-    active_assignments = assignments_df[
-        assignments_df["assignment_status"] == "Assigned"
-    ]
-    assigned_asset_ids = active_assignments["asset_id"].tolist()
-
-# ─────────────────────────────────────────────
-# Available assets for assignment
-# ─────────────────────────────────────────────
-available_assets = assets_df[
-    (assets_df["is_active"].astype(str).str.lower() == "true")
-    & (~assets_df["asset_id"].isin(assigned_asset_ids))
-]
-
-if available_assets.empty:
-    st.warning("No available assets for assignment.")
-    st.stop()
+    return [f"AST-{str(i).zfill(3)}" for i in range(start, start + qty)]
 
 # ─────────────────────────────────────────────
-# Assignment form
+# Asset submission form
 # ─────────────────────────────────────────────
-with st.form("assign_asset_form"):
-    asset_option = st.selectbox(
-        "Select Asset",
-        available_assets.apply(
-            lambda x: f"{x['asset_id']} | {x['asset_name']} | {x['location']}",
-            axis=1
-        )
-    )
+with st.form("asset_submission_form"):
+    col1, col2, col3 = st.columns(3)
 
-    employee_option = st.selectbox(
-        "Select Employee",
-        employees_df[
-            employees_df["employment_status"] == "Active"
-        ].apply(
-            lambda x: f"{x['employee_id']} | {x['employee_name']} | {x['department']}",
-            axis=1
-        )
-    )
+    with col1:
+        asset_name = st.text_input("Asset Name *")
+        category = st.text_input("Category *")
+        brand = st.text_input("Brand")
 
-    assigned_on = st.date_input("Assigned On", value=datetime.today())
-    remarks = st.text_input("Remarks (optional)")
+    with col2:
+        model = st.text_input("Model")
+        location = st.text_input("Location *")
+        qty = st.number_input("Quantity *", min_value=1, step=1)
 
-    submit = st.form_submit_button("✅ Assign Asset")
+    with col3:
+        purchase_date = st.date_input("Purchase Date *")
+        warranty_end = st.date_input("Warranty End Date *")
+        is_active = st.selectbox("Is Active", [True, False])
+
+    submit = st.form_submit_button("➕ Create Assets")
 
 # ─────────────────────────────────────────────
-# Assignment processing
+# Submit handling
 # ─────────────────────────────────────────────
 if submit:
-    asset_id = asset_option.split(" | ")[0]
-    employee_id = employee_option.split(" | ")[0]
-
-    # Safety recheck (never trust UI)
-    if asset_id in assigned_asset_ids:
-        st.error("This asset is already assigned.")
+    if not asset_name or not category or not location:
+        st.error("Asset Name, Category, and Location are required")
         st.stop()
 
-    asset_row = assets_df[assets_df["asset_id"] == asset_id]
+    now = datetime.now().date().isoformat()
+    asset_ids = get_next_asset_ids(assets_df, qty)
 
-    if asset_row.empty:
-        st.error("Asset not found.")
-        st.stop()
-
-    if asset_row.iloc[0]["is_active"] is False:
-        st.error("Inactive assets cannot be assigned.")
-        st.stop()
-
-    # Generate assignment ID
-    if assignments_df.empty:
-        next_id = 1
-    else:
-        assignments_df["num"] = (
-            assignments_df["assignment_id"]
-            .astype(str)
-            .str.replace("ASN-", "", regex=False)
-            .astype(int)
+    for asset_id in asset_ids:
+        append_row(
+            ASSETS_MASTER_SHEET,
+            {
+                "asset_id": asset_id,
+                "asset_name": asset_name,
+                "category": category,
+                "brand": brand,
+                "model": model,
+                "purchase_date": purchase_date.isoformat(),
+                "warranty_end": warranty_end.isoformat(),
+                "location": location,
+                "is_active": is_active,
+                "created_at": now,
+                "updated_at": now,
+            },
         )
-        next_id = assignments_df["num"].max() + 1
 
-    assignment_id = f"ASN-{str(next_id).zfill(4)}"
-
-    row = {
-        "assignment_id": assignment_id,
-        "asset_id": asset_id,
-        "employee_id": employee_id,
-        "assigned_on": assigned_on.isoformat(),
-        "returned_on": "",
-        "assignment_status": "Assigned",
-        "remarks": remarks,
-        "created_at": datetime.now().isoformat()
-    }
-
-    append_row(ASSET_ASSIGNMENTS_SHEET, row)
-
-    st.success(f"Asset {asset_id} assigned successfully")
+    st.success(f"{qty} asset units created successfully")
     st.rerun()
 
 # ─────────────────────────────────────────────
-# Active assignments view
+# Asset inventory view
 # ─────────────────────────────────────────────
 st.divider()
-st.subheader("📌 Active Asset Assignments")
+st.subheader("📋 Asset Inventory (Unit Level)")
 
-if assignments_df.empty:
-    st.info("No assignments found.")
+if assets_df.empty:
+    st.info("No assets found")
 else:
     st.dataframe(
-        assignments_df[
-            assignments_df["assignment_status"] == "Assigned"
-        ].sort_values("assigned_on", ascending=False),
+        assets_df.sort_values("asset_id"),
         use_container_width=True
     )
