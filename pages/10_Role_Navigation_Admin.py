@@ -8,6 +8,7 @@ from utils.gsheets import read_sheet, write_sheet
 
 login_required()
 admin_only()
+logout()
 
 st.title("Role Navigation Admin")
 

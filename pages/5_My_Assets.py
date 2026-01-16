@@ -8,13 +8,13 @@ from utils.gsheets import read_sheet
 from utils.export import export_csv
 from utils.constants import ASSET_ASSIGNMENTS_SHEET, ASSETS_MASTER_SHEET, ROLE_ADMIN
 from utils.auth import logout
-logout()
+
 # ─────────────────────────────────────────────
 # Page protection
 # ─────────────────────────────────────────────
 login_required()
 apply_role_based_navigation()
-
+logout()
 
 user = st.session_state["user"]
 employee_id = user["employee_id"]

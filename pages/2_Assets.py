@@ -8,14 +8,15 @@ from utils.permissions import login_required, admin_only
 from utils.gsheets import read_sheet, append_row
 from utils.constants import ASSETS_MASTER_SHEET
 
+from utils.permissions import admin_only
+admin_only()
+
+from utils.navigation import apply_role_based_navigation
+apply_role_based_navigation()
+
 from utils.auth import logout
 logout()
 
-# ─────────────────────────────────────────────
-# Page protection
-from utils.navigation import apply_role_based_navigation# ─────────────────────────────────────────────
-admin_only()
-apply_role_based_navigation()
 
 st.title("Assets")
 
