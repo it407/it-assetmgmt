@@ -21,7 +21,7 @@ user = st.session_state["user"]
 employee_id = user["employee_id"]
 is_admin = user["role"] == ROLE_ADMIN
 
-st.title("🧑‍💻 My Assets")
+st.title("My Assets")
 
 # ─────────────────────────────────────────────
 # Load data

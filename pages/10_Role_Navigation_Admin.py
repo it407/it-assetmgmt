@@ -9,7 +9,7 @@ from utils.gsheets import read_sheet, write_sheet
 login_required()
 admin_only()
 
-st.title("🧭 Role-based Navigation Control")
+st.title("Rolebased Navigation Control")
 
 SHEET_NAME = "role_navigation"
 
