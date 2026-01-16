@@ -16,6 +16,11 @@ admin_or_manager_only()
 apply_role_based_navigation()
 logout()
 
+# ─────────────────────────────────────────────
+# Back to Dashboard Hub
+# ─────────────────────────────────────────────
+if st.button("⬅ Back to Dashboard"):
+    st.switch_page("app.py")
 
 st.title("Dashboard")
 
