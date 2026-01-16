@@ -1,8 +1,7 @@
 # utils/navigation.py
 
 import streamlit as st
-from utils.gsheets import read_sheet
-from utils.constants import ROLE_ADMIN
+from utils.constants import ROLE_ADMIN, ROLE_MANAGER, ROLE_USER
 
 def apply_role_based_navigation():
     user = st.session_state.get("user")
@@ -11,47 +10,45 @@ def apply_role_based_navigation():
 
     role = user["role"]
 
-    # 🔒 CRITICAL: Admin should NEVER have nav filtered
+    # 👑 Admin → see everything
     if role == ROLE_ADMIN:
         return
 
-    nav_df = read_sheet("role_navigation")
-    if nav_df.empty:
-        return  # fail open
+    # 👔 Manager → dashboards only (HARD-CODED)
+    if role == ROLE_MANAGER:
+        st.markdown(
+            """
+            <style>
+            [data-testid="stSidebarNav"] li {
+                display: none;
+            }
 
-    nav_df.columns = nav_df.columns.str.strip().str.lower()
+            [data-testid="stSidebarNav"] a[aria-label="Dashboard"] {
+                display: block !important;
+            }
 
-    nav_df["is_visible"] = (
-        nav_df["is_visible"]
-        .astype(str)
-        .str.lower()
-        .isin(["true", "1", "yes"])
-    )
-
-    allowed_pages = nav_df[
-        (nav_df["role"] == role)
-        & (nav_df["is_visible"])
-    ]["page_title"].tolist()
-
-    # 🚨 NEVER blank sidebar
-    if not allowed_pages:
+            [data-testid="stSidebarNav"] a[aria-label="User Asset Assignments"] {
+                display: block !important;
+            }
+            </style>
+            """,
+            unsafe_allow_html=True,
+        )
         return
 
-    selectors = "\n".join(
-        [
-            f'[data-testid="stSidebarNav"] a[aria-label="{p}"] {{ display: block !important; }}'
-            for p in allowed_pages
-        ]
-    )
+    # 👤 User → My Assets only
+    if role == ROLE_USER:
+        st.markdown(
+            """
+            <style>
+            [data-testid="stSidebarNav"] li {
+                display: none;
+            }
 
-    st.markdown(
-        f"""
-        <style>
-        [data-testid="stSidebarNav"] li {{
-            display: none;
-        }}
-        {selectors}
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
+            [data-testid="stSidebarNav"] a[aria-label="My Assets"] {
+                display: block !important;
+            }
+            </style>
+            """,
+            unsafe_allow_html=True,
+        )
