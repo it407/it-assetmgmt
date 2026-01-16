@@ -1,151 +1,112 @@
 import streamlit as st
 import pandas as pd
+from datetime import datetime
 
-# ================= PAGE CONFIG =================
-st.set_page_config(page_title="CCTV & WiFi Credential Manager", layout="wide")
+from utils.permissions import login_required, admin_only
+from utils.gsheets import read_sheet, append_row
 
-# ================= UI CLEAN =================
-st.markdown("""
-<style>
-.block-container { padding-top: 1rem; }
-header [data-testid="stToolbar"] { display: none; }
-a[href*="share.streamlit"],
-[data-testid="stShareButton"] { display: none !important; }
-footer { visibility: hidden; }
-</style>
-""", unsafe_allow_html=True)
+# ─────────────────────────────────────────────
+# Page protection
+# ─────────────────────────────────────────────
+login_required()
+admin_only()
 
-# ================= SESSION INIT =================
-if "logged_in" not in st.session_state:
-    st.session_state.logged_in = False
-    st.session_state.employee_id = None
-    st.session_state.role = None
+st.title("📡 CCTV / Wi-Fi Credentials Master")
 
-# ================= GOOGLE SHEET CONFIG =================
-SHEET_ID = "1FVjiK9Y-AhrogECD6Q8tRZpPiSxOFMevlMKGQWTGsHI"
+SHEET_NAME = "cctv_wifi_credential"
 
-ACCESS_SHEET = "user_access_master"
-DATA_SHEET = "cctv_wifi_credential"
+# ─────────────────────────────────────────────
+# Load existing credentials
+# ─────────────────────────────────────────────
+cred_df = read_sheet(SHEET_NAME)
+if not cred_df.empty:
+    cred_df.columns = cred_df.columns.str.strip().str.lower()
 
-ACCESS_CSV_URL = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/gviz/tq?tqx=out:csv&sheet={ACCESS_SHEET}"
-DATA_CSV_URL = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/gviz/tq?tqx=out:csv&sheet={DATA_SHEET}"
+# ─────────────────────────────────────────────
+# Safe credential_id generator
+# Format: NET-001
+# ─────────────────────────────────────────────
+def get_next_credential_id(df: pd.DataFrame):
+    if df.empty or "credential_id" not in df.columns:
+        return "NET-001"
 
-# ================= LOAD USERS (BULLETPROOF) =================
-@st.cache_data(ttl=600)
-def load_users():
-    df = pd.read_csv(ACCESS_CSV_URL)
+    nums = df["credential_id"].astype(str).str.extract(r"(\d+)")
+    nums = nums.dropna()
 
-    # Handle broken headers (space separated)
-    if len(df.columns) == 1:
-        df = df.iloc[:, 0].astype(str).str.split(r"\s+", expand=True)
-        df.columns = ["user_id", "employee_id", "username", "password", "role", "is_active"]
+    if nums.empty:
+        return "NET-001"
 
-    # Normalize headers
-    df.columns = df.columns.str.strip().str.lower().str.replace(" ", "")
+    next_num = nums[0].astype(int).max() + 1
+    return f"NET-{str(next_num).zfill(3)}"
 
-    rename_map = {
-        "userid": "user_id",
-        "employeeid": "employee_id",
-        "username": "username",
-        "password": "password",
-        "role": "role",
-        "isactive": "is_active",
-        "active": "is_active"
-    }
-    df = df.rename(columns=rename_map)
+# ─────────────────────────────────────────────
+# Submission form
+# ─────────────────────────────────────────────
+with st.form("cctv_wifi_form"):
+    col1, col2 = st.columns(2)
 
-    df["is_active"] = df["is_active"].astype(str).str.upper() == "TRUE"
+    with col1:
+        location = st.text_input("Location *")
+        device_type = st.selectbox(
+            "Device Type *",
+            ["WiFi Router", "CCTV Camera", "NVR / DVR", "Switch", "Other"]
+        )
+        ssid = st.text_input("SSID / Device Name *")
 
-    return df
+    with col2:
+        password = st.text_input("Password *")
+        ip_address = st.text_input("IP Address")
+        remarks = st.text_area("Remarks")
 
-users_df = load_users()
+    submit = st.form_submit_button("➕ Save Credential")
 
-# ================= LOAD CCTV / WIFI DATA =================
-@st.cache_data(ttl=600)
-def load_credentials():
-    df = pd.read_csv(DATA_CSV_URL)
+# ─────────────────────────────────────────────
+# Submit logic
+# ─────────────────────────────────────────────
+if submit:
+    if not location or not device_type or not ssid or not password:
+        st.error("Location, Device Type, SSID, and Password are required.")
+        st.stop()
 
-    # Normalize headers
-    df.columns = df.columns.str.strip().str.lower().str.replace(" ", "_")
+    credential_id = get_next_credential_id(cred_df)
 
-    return df
+    append_row(
+        SHEET_NAME,
+        {
+            "credential_id": credential_id,
+            "location": location,
+            "device_type": device_type,
+            "ssid": ssid,
+            "password": password,
+            "ip_address": ip_address,
+            "remarks": remarks,
+            "created_at": datetime.now().isoformat(),
+        }
+    )
 
-# ================= LOGIN SCREEN =================
-def login_screen():
-    st.title("🔐 Credential Manager Login")
+    st.success("CCTV / Wi-Fi credential saved successfully")
+    st.rerun()
 
-    username = st.text_input("Username")
-    password = st.text_input("Password", type="password")
+# ─────────────────────────────────────────────
+# Credentials table view
+# ─────────────────────────────────────────────
+st.divider()
+st.subheader("📋 Stored CCTV / Wi-Fi Credentials")
 
-    if st.button("Login"):
-        user = users_df[
-            (users_df["username"] == username) &
-            (users_df["password"] == password) &
-            (users_df["is_active"] == True)
-        ]
+if cred_df.empty:
+    st.info("No credentials found.")
+else:
+    sorted_df = cred_df.sort_values("created_at", ascending=False)
 
-        if user.empty:
-            st.error("❌ Invalid credentials or inactive user")
-        else:
-            st.session_state.logged_in = True
-            st.session_state.employee_id = user.iloc[0]["employee_id"]
-            st.session_state.role = user.iloc[0]["role"]
-            st.rerun()
+    st.dataframe(
+        sorted_df,
+        use_container_width=True
+    )
 
-# ================= LOGOUT =================
-def logout_sidebar():
-    with st.sidebar:
-        st.markdown(f"👤 **Role:** {st.session_state.role}")
-        st.markdown(f"🆔 **Employee ID:** {st.session_state.employee_id}")
-        if st.button("🚪 Logout"):
-            st.session_state.clear()
-            st.rerun()
-
-# ================= AUTH GATE =================
-if not st.session_state.logged_in:
-    login_screen()
-    st.stop()
-
-logout_sidebar()
-
-# ================= LOAD DATA =================
-df = load_credentials()
-
-st.title("📡 CCTV & WiFi Credential Manager")
-
-if df.empty:
-    st.warning("No credential data found.")
-    st.stop()
-
-# ================= ROLE NOTICE =================
-if st.session_state.role != "Admin":
-    st.info("🔒 View-only access (Admin can manage credentials)")
-
-# ================= SEARCH =================
-search = st.text_input("🔍 Search (Location / Device / SSID / IP)")
-
-if search:
-    df = df[df.apply(
-        lambda row: search.lower() in " ".join(row.astype(str)).lower(),
-        axis=1
-    )]
-
-# ================= MASK PASSWORDS FOR USERS =================
-display_df = df.copy()
-
-if st.session_state.role != "Admin":
-    for col in display_df.columns:
-        if "password" in col:
-            display_df[col] = "••••••••"
-
-# ================= TABLE =================
-st.subheader("📋 Credential Records")
-st.dataframe(display_df, use_container_width=True, height=520)
-
-# ================= DOWNLOAD =================
-st.download_button(
-    "⬇ Download CSV",
-    data=df.to_csv(index=False).encode("utf-8"),
-    file_name="cctv_wifi_credentials.csv",
-    mime="text/csv"
-)
+    # ⬇ CSV DOWNLOAD
+    st.download_button(
+        label="⬇ Download Credentials (CSV)",
+        data=sorted_df.to_csv(index=False).encode("utf-8"),
+        file_name="cctv_wifi_credentials.csv",
+        mime="text/csv"
+    )
