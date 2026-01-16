@@ -63,8 +63,8 @@ if submit:
         st.error("Invalid IP address format")
         st.stop()
 
-    # Force IP as text for Google Sheets
-    safe_ip = f"'{ip_address}" if ip_address else ""
+    # ✅ ONLY RELIABLE WAY TO SAVE IP AS STRING
+    safe_ip = f'="{ip_address}"' if ip_address else ""
 
     append_row(
         SHEET_NAME,
@@ -73,7 +73,7 @@ if submit:
             "device_type": device_type,
             "ssid": ssid,
             "password": password,
-            "ip_address": safe_ip,
+            "ip_address": safe_ip,   # 👈 FORMULA-BASED TEXT
             "remarks": remarks,
             "created_at": datetime.now().isoformat(),
         }
@@ -91,7 +91,6 @@ st.subheader("📋 Stored CCTV / Wi-Fi Credentials")
 if cred_df.empty:
     st.info("No credentials found.")
 else:
-    # Safe sorting
     if "created_at" in cred_df.columns:
         display_df = cred_df.sort_values("created_at", ascending=False)
     else:
@@ -102,7 +101,6 @@ else:
         use_container_width=True
     )
 
-    # CSV Download
     st.download_button(
         label="⬇ Download Credentials (CSV)",
         data=display_df.to_csv(index=False).encode("utf-8"),
