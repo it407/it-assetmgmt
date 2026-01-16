@@ -17,24 +17,27 @@ login_required()
 user = st.session_state["user"]
 
 # ─────────────────────────────────────────────
-# Sidebar header
+# Sidebar
 # ─────────────────────────────────────────────
 st.sidebar.success(f"Logged in as {user['email']} ({user['role']})")
-
-# Logout button
 logout()
 
 # ─────────────────────────────────────────────
-# ROLE-BASED SIDEBAR VISIBILITY (UI LEVEL)
+# HIDE PAGES FOR NON-ADMIN (FIXED)
 # ─────────────────────────────────────────────
 if user["role"] != ROLE_ADMIN:
-    # Hide all pages except first one (My Assets)
     st.markdown(
         """
         <style>
-            [data-testid="stSidebarNav"] li:not(:first-child) {
-                display: none;
-            }
+        /* Hide all pages */
+        [data-testid="stSidebarNav"] li {
+            display: none;
+        }
+
+        /* Show ONLY My Assets */
+        [data-testid="stSidebarNav"] li:has(a[title="My Assets"]) {
+            display: block;
+        }
         </style>
         """,
         unsafe_allow_html=True,
@@ -49,12 +52,6 @@ if user["role"] == ROLE_ADMIN:
     st.markdown("""
     ### Welcome Admin 👋  
     You have full access to the system.
-
-    Use the sidebar to manage:
-    - Assets
-    - Asset Assignments & Returns
-    - Subscriptions
-    - Reports & Dashboards
     """)
 else:
     st.markdown("""
@@ -63,4 +60,3 @@ else:
 
     👉 Please use **My Assets** from the sidebar.
     """)
-
