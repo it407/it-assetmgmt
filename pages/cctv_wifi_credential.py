@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 
 # ================= PAGE CONFIG =================
-st.set_page_config(page_title="CCTV / WiFi Credentials", layout="wide")
+st.set_page_config(page_title="CCTV & WiFi Credential Manager", layout="wide")
 
 # ================= UI CLEAN =================
 st.markdown("""
@@ -35,11 +35,12 @@ DATA_CSV_URL = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/gviz/tq?tqx=o
 def load_users():
     df = pd.read_csv(ACCESS_CSV_URL)
 
-    # Handle broken headers
+    # Handle broken headers (space separated)
     if len(df.columns) == 1:
         df = df.iloc[:, 0].astype(str).str.split(r"\s+", expand=True)
         df.columns = ["user_id", "employee_id", "username", "password", "role", "is_active"]
 
+    # Normalize headers
     df.columns = df.columns.str.strip().str.lower().str.replace(" ", "")
 
     rename_map = {
@@ -48,7 +49,8 @@ def load_users():
         "username": "username",
         "password": "password",
         "role": "role",
-        "isactive": "is_active"
+        "isactive": "is_active",
+        "active": "is_active"
     }
     df = df.rename(columns=rename_map)
 
@@ -60,14 +62,17 @@ users_df = load_users()
 
 # ================= LOAD CCTV / WIFI DATA =================
 @st.cache_data(ttl=600)
-def load_cctv_data():
+def load_credentials():
     df = pd.read_csv(DATA_CSV_URL)
-    df.columns = df.columns.str.strip().str.lower()
+
+    # Normalize headers
+    df.columns = df.columns.str.strip().str.lower().str.replace(" ", "_")
+
     return df
 
 # ================= LOGIN SCREEN =================
 def login_screen():
-    st.title("🔐 Secure Login")
+    st.title("🔐 Credential Manager Login")
 
     username = st.text_input("Username")
     password = st.text_input("Password", type="password")
@@ -91,7 +96,7 @@ def login_screen():
 def logout_sidebar():
     with st.sidebar:
         st.markdown(f"👤 **Role:** {st.session_state.role}")
-        st.markdown(f"🆔 **Employee:** {st.session_state.employee_id}")
+        st.markdown(f"🆔 **Employee ID:** {st.session_state.employee_id}")
         if st.button("🚪 Logout"):
             st.session_state.clear()
             st.rerun()
@@ -104,20 +109,20 @@ if not st.session_state.logged_in:
 logout_sidebar()
 
 # ================= LOAD DATA =================
-df = load_cctv_data()
+df = load_credentials()
 
-st.title("📡 CCTV & Wi-Fi Credentials")
+st.title("📡 CCTV & WiFi Credential Manager")
 
 if df.empty:
-    st.warning("No data available.")
+    st.warning("No credential data found.")
     st.stop()
 
-# ================= ROLE RULE =================
+# ================= ROLE NOTICE =================
 if st.session_state.role != "Admin":
-    st.info("🔒 View-only access")
+    st.info("🔒 View-only access (Admin can manage credentials)")
 
-# ================= FILTER =================
-search = st.text_input("Search (Location / Device / SSID)")
+# ================= SEARCH =================
+search = st.text_input("🔍 Search (Location / Device / SSID / IP)")
 
 if search:
     df = df[df.apply(
@@ -125,9 +130,17 @@ if search:
         axis=1
     )]
 
+# ================= MASK PASSWORDS FOR USERS =================
+display_df = df.copy()
+
+if st.session_state.role != "Admin":
+    for col in display_df.columns:
+        if "password" in col:
+            display_df[col] = "••••••••"
+
 # ================= TABLE =================
 st.subheader("📋 Credential Records")
-st.dataframe(df, use_container_width=True, height=520)
+st.dataframe(display_df, use_container_width=True, height=520)
 
 # ================= DOWNLOAD =================
 st.download_button(
