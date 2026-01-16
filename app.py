@@ -2,6 +2,7 @@
 
 import streamlit as st
 from utils.permissions import login_required
+from utils.auth import logout
 
 st.set_page_config(
     page_title="IT Asset & Subscription Manager",
@@ -13,6 +14,9 @@ login_required()
 user = st.session_state["user"]
 
 st.sidebar.success(f"Logged in as {user['email']} ({user['role']})")
+
+# ✅ LOGOUT BUTTON
+logout()
 
 st.title("🏢 IT Asset & Subscription Management System")
 

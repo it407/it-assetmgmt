@@ -8,6 +8,9 @@ from utils.permissions import login_required, admin_only
 from utils.gsheets import read_sheet, append_row
 from utils.constants import ASSETS_MASTER_SHEET
 
+from utils.auth import logout
+logout()
+
 # ─────────────────────────────────────────────
 # Page protection
 # ─────────────────────────────────────────────

@@ -37,3 +37,8 @@ def login():
             "role": user.iloc[0]["role"]
         }
         st.rerun()
+
+def logout():
+    if st.sidebar.button("🚪 Logout"):
+        st.session_state.clear()
+        st.rerun()

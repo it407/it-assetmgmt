@@ -7,6 +7,8 @@ from datetime import datetime
 from utils.permissions import login_required, admin_only
 from utils.gsheets import read_sheet, write_sheet
 from utils.constants import ASSET_ASSIGNMENTS_SHEET, ASSETS_MASTER_SHEET
+from utils.auth import logout
+logout()
 
 # ─────────────────────────────────────────────
 # Page protection
