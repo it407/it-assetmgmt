@@ -2,7 +2,7 @@
 
 import streamlit as st
 import pandas as pd
-
+from utils.navigation import apply_role_based_navigation
 from utils.permissions import login_required
 from utils.gsheets import read_sheet
 from utils.export import export_csv
@@ -12,8 +12,7 @@ logout()
 # ─────────────────────────────────────────────
 # Page protection
 # ─────────────────────────────────────────────
-from utils.navigation import apply_role_based_navigation# ─────────────────────────────────────────────
-admin_only()
+login_required()
 apply_role_based_navigation()
 
 
