@@ -10,10 +10,24 @@ st.set_page_config(
     layout="wide"
 )
 
+# ─────────────────────────────────────────────
+# Authentication
+# ─────────────────────────────────────────────
 login_required()
 user = st.session_state["user"]
 role = user["role"]
 
+# ─────────────────────────────────────────────
+# 🔁 AUTO-REDIRECT USER TO MY ASSETS
+# ─────────────────────────────────────────────
+if role == "User":
+    if st.session_state.get("_redirected") != True:
+        st.session_state["_redirected"] = True
+        st.switch_page("pages/5_My_Assets.py")
+
+# ─────────────────────────────────────────────
+# Sidebar
+# ─────────────────────────────────────────────
 st.sidebar.success(f"Logged in as {user['email']} ({role})")
 logout()
 
@@ -21,7 +35,6 @@ logout()
 # ROLE-BASED SIDEBAR VISIBILITY
 # ─────────────────────────────────────────────
 if role == "User":
-    # User → only My Assets
     st.markdown(
         """
         <style>
@@ -37,7 +50,6 @@ if role == "User":
     )
 
 elif role == ROLE_MANAGER:
-    # Manager → only dashboards
     st.markdown(
         """
         <style>
@@ -52,8 +64,9 @@ elif role == ROLE_MANAGER:
         unsafe_allow_html=True,
     )
 
-# Admin → sees everything (no CSS)
-
+# ─────────────────────────────────────────────
+# Main content
+# ─────────────────────────────────────────────
 st.title("🏢 IT Asset & Subscription Management System")
 
 if role == ROLE_ADMIN:
@@ -61,4 +74,4 @@ if role == ROLE_ADMIN:
 elif role == ROLE_MANAGER:
     st.markdown("### Welcome Manager 👋 (Dashboard Access)")
 else:
-    st.markdown("### Welcome 👋 (My Assets Only)")
+    st.markdown("### Redirecting to My Assets…")
