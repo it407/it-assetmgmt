@@ -82,10 +82,9 @@ con.register("asset_assignments", assigned_df[["asset_id"]])
 query = """
 SELECT
     am.category,
-    'Qty' AS asset_type,
     COUNT(*) AS total_qty,
 
-    /* Inactive / Damaged assets */
+    /* Inactive / Damaged */
     SUM(
         CASE 
             WHEN am.is_active = FALSE THEN 1 
@@ -93,10 +92,10 @@ SELECT
         END
     ) AS out_of_service_qty,
 
-    /* Currently assigned assets */
+    /* Assigned */
     COUNT(a.asset_id) AS total_assigned,
 
-    /* Available assets */
+    /* Available */
     COUNT(*) 
         - SUM(CASE WHEN am.is_active = FALSE THEN 1 ELSE 0 END)
         - COUNT(a.asset_id)
