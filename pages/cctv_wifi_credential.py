@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
+import re
 
 from utils.permissions import login_required, admin_only
 from utils.gsheets import read_sheet, append_row
@@ -23,21 +24,11 @@ if not cred_df.empty:
     cred_df.columns = cred_df.columns.str.strip().str.lower()
 
 # ─────────────────────────────────────────────
-# Safe credential_id generator
-# Format: NET-001
+# IP validation
 # ─────────────────────────────────────────────
-def get_next_credential_id(df: pd.DataFrame):
-    if df.empty or "credential_id" not in df.columns:
-        return "NET-001"
-
-    nums = df["credential_id"].astype(str).str.extract(r"(\d+)")
-    nums = nums.dropna()
-
-    if nums.empty:
-        return "NET-001"
-
-    next_num = nums[0].astype(int).max() + 1
-    return f"NET-{str(next_num).zfill(3)}"
+def is_valid_ip(ip: str) -> bool:
+    pattern = r"^(?:\d{1,3}\.){3}\d{1,3}$"
+    return bool(re.match(pattern, ip))
 
 # ─────────────────────────────────────────────
 # Submission form
@@ -55,7 +46,7 @@ with st.form("cctv_wifi_form"):
 
     with col2:
         password = st.text_input("Password *")
-        ip_address = st.text_input("IP Address")
+        ip_address = st.text_input("IP Address (example: 192.168.2.249)")
         remarks = st.text_area("Remarks")
 
     submit = st.form_submit_button("➕ Save Credential")
@@ -68,17 +59,21 @@ if submit:
         st.error("Location, Device Type, SSID, and Password are required.")
         st.stop()
 
-    credential_id = get_next_credential_id(cred_df)
+    if ip_address and not is_valid_ip(ip_address):
+        st.error("Invalid IP address format")
+        st.stop()
+
+    # Force IP as text for Google Sheets
+    safe_ip = f"'{ip_address}" if ip_address else ""
 
     append_row(
         SHEET_NAME,
         {
-            "credential_id": credential_id,
             "location": location,
             "device_type": device_type,
             "ssid": ssid,
             "password": password,
-            "ip_address": ip_address,
+            "ip_address": safe_ip,
             "remarks": remarks,
             "created_at": datetime.now().isoformat(),
         }
@@ -96,17 +91,21 @@ st.subheader("📋 Stored CCTV / Wi-Fi Credentials")
 if cred_df.empty:
     st.info("No credentials found.")
 else:
-    sorted_df = cred_df.sort_values("created_at", ascending=False)
+    # Safe sorting
+    if "created_at" in cred_df.columns:
+        display_df = cred_df.sort_values("created_at", ascending=False)
+    else:
+        display_df = cred_df.copy()
 
     st.dataframe(
-        sorted_df,
+        display_df,
         use_container_width=True
     )
 
-    # ⬇ CSV DOWNLOAD
+    # CSV Download
     st.download_button(
         label="⬇ Download Credentials (CSV)",
-        data=sorted_df.to_csv(index=False).encode("utf-8"),
+        data=display_df.to_csv(index=False).encode("utf-8"),
         file_name="cctv_wifi_credentials.csv",
         mime="text/csv"
     )
