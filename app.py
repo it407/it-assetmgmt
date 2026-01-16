@@ -10,11 +10,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# ─────────────────────────────────────────────
-# Authentication
-# ─────────────────────────────────────────────
 login_required()
-
 user = st.session_state["user"]
 role = user["role"]
 
@@ -22,14 +18,29 @@ st.sidebar.success(f"Logged in as {user['email']} ({role})")
 logout()
 
 # ─────────────────────────────────────────────
-# User → redirect to My Assets
+# HIDE SIDEBAR NAV FOR MANAGER & USER
+# ─────────────────────────────────────────────
+if role in [ROLE_MANAGER, ROLE_USER]:
+    st.markdown(
+        """
+        <style>
+        [data-testid="stSidebarNav"] {
+            display: none;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+# ─────────────────────────────────────────────
+# USER → My Assets
 # ─────────────────────────────────────────────
 if role == ROLE_USER and not st.session_state.get("_user_redirect"):
     st.session_state["_user_redirect"] = True
     st.switch_page("pages/5_My_Assets.py")
 
 # ─────────────────────────────────────────────
-# Admin / Manager → Dashboard Hub
+# MANAGER / ADMIN → Dashboard Hub
 # ─────────────────────────────────────────────
 st.title("📊 Dashboards")
 
@@ -47,10 +58,8 @@ with col1:
         st.switch_page("pages/9_User_Asset_Assignments.py")
 
 with col2:
-    st.subheader("🔐 System Dashboards")
+    st.subheader("🔐 System")
 
     if role == ROLE_ADMIN:
         if st.button("🧭 Role Navigation Admin"):
             st.switch_page("pages/10_Role_Navigation_Admin.py")
-
-st.info("Use the sidebar Logout button to exit.")
