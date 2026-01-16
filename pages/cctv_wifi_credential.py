@@ -16,7 +16,7 @@ from utils.navigation import apply_role_based_navigation
 apply_role_based_navigation()
 
 
-st.title("CCTV Wi-Fi Credentials Master")
+st.title("cctv wifi Credential")
 
 SHEET_NAME = "cctv_wifi_credential"
 

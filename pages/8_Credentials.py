@@ -18,7 +18,7 @@ from utils.navigation import apply_role_based_navigation
 apply_role_based_navigation()
 
 
-st.title("Credentials Master")
+st.title("Credentials")
 
 SHEET_NAME = "credentials_master"
 

@@ -19,7 +19,7 @@ from utils.navigation import apply_role_based_navigation
 apply_role_based_navigation()
 
 
-st.title("User Assigned Assets")
+st.title("User Assets Assignment")
 
 # ─────────────────────────────────────────────
 # Load data

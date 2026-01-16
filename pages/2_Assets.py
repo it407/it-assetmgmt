@@ -20,7 +20,7 @@ from utils.navigation import apply_role_based_navigation
 apply_role_based_navigation()
 
 
-st.title("Asset Submission")
+st.title("Asset")
 
 # ─────────────────────────────────────────────
 # Load assets
