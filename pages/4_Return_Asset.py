@@ -47,7 +47,8 @@ with st.form("return_asset_form"):
             lambda x: (
                 f"{x['assignment_id']} | "
                 f"{x['asset_id']} | "
-                f"{x['employee_id']}"
+                f"{x['employee_id']} | "
+                f"{x['employee_name']}"
             ),
             axis=1
         )
@@ -60,14 +61,10 @@ with st.form("return_asset_form"):
             "Employee Exit",
             "Asset Inactive / Damaged",
             "Other",
-        ],
+        ]
     )
 
-    returned_on = st.date_input(
-        "Return Date",
-        value=datetime.today()
-    )
-
+    returned_on = st.date_input("Return Date", value=datetime.today())
     submit = st.form_submit_button("↩️ Return Asset")
 
 # ─────────────────────────────────────────────
@@ -84,23 +81,16 @@ if submit:
         st.error("Assignment not found.")
         st.stop()
 
-    if assignments_df.loc[idx[0], "assignment_status"] != "Assigned":
-        st.error("Asset already returned.")
-        st.stop()
-
     asset_id = assignments_df.loc[idx[0], "asset_id"]
 
-    # Update assignment
     assignments_df.loc[idx, "assignment_status"] = "Returned"
     assignments_df.loc[idx, "returned_on"] = returned_on.isoformat()
     assignments_df.loc[idx, "return_reason"] = return_reason
 
-    # If asset inactive → mark asset inactive
     if return_reason == "Asset Inactive / Damaged":
         assets_df.loc[
             assets_df["asset_id"] == asset_id, "is_active"
         ] = False
-
         assets_df.loc[
             assets_df["asset_id"] == asset_id, "updated_at"
         ] = datetime.now().date().isoformat()
@@ -112,7 +102,7 @@ if submit:
     st.rerun()
 
 # ─────────────────────────────────────────────
-# Active assignments view
+# Active assignments table
 # ─────────────────────────────────────────────
 st.divider()
 st.subheader("📌 Currently Assigned Assets")

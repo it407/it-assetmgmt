@@ -27,23 +27,15 @@ for df in [assets_df, assignments_df, employees_df]:
     if not df.empty:
         df.columns = df.columns.str.strip().str.lower()
 
-# ─────────────────────────────────────────────
-# Guards
-# ─────────────────────────────────────────────
-if assets_df.empty:
-    st.error("No assets found.")
-    st.stop()
-
-if employees_df.empty:
-    st.error("No employees found.")
+if assets_df.empty or employees_df.empty:
+    st.error("Assets or Employees data missing.")
     st.stop()
 
 # ─────────────────────────────────────────────
-# Find assigned assets
+# Currently assigned assets
 # ─────────────────────────────────────────────
-if assignments_df.empty:
-    assigned_asset_ids = []
-else:
+assigned_asset_ids = []
+if not assignments_df.empty:
     assigned_asset_ids = assignments_df[
         assignments_df["assignment_status"] == "Assigned"
     ]["asset_id"].astype(str).tolist()
@@ -57,8 +49,12 @@ available_assets = assets_df[
 ]
 
 if available_assets.empty:
-    st.warning("No available assets.")
+    st.warning("No available assets for assignment.")
     st.stop()
+
+active_employees = employees_df[
+    employees_df["employment_status"] == "Active"
+]
 
 # ─────────────────────────────────────────────
 # SAFE assignment_id generator
@@ -67,14 +63,13 @@ def get_next_assignment_id(df: pd.DataFrame) -> str:
     if df.empty or "assignment_id" not in df.columns:
         return "ASN-0001"
 
-    valid = df["assignment_id"].astype(str).str.extract(r"(\d+)")
-    valid = valid.dropna()
+    nums = df["assignment_id"].astype(str).str.extract(r"(\d+)")
+    nums = nums.dropna()
 
-    if valid.empty:
+    if nums.empty:
         return "ASN-0001"
 
-    next_num = valid[0].astype(int).max() + 1
-    return f"ASN-{str(next_num).zfill(4)}"
+    return f"ASN-{str(nums[0].astype(int).max() + 1).zfill(4)}"
 
 # ─────────────────────────────────────────────
 # Assignment form
@@ -90,9 +85,7 @@ with st.form("assign_asset_form"):
 
     employee_option = st.selectbox(
         "Select Employee",
-        employees_df[
-            employees_df["employment_status"] == "Active"
-        ].apply(
+        active_employees.apply(
             lambda x: f"{x['employee_id']} | {x['employee_name']}",
             axis=1
         )
@@ -104,20 +97,14 @@ with st.form("assign_asset_form"):
     submit = st.form_submit_button("✅ Assign Asset")
 
 # ─────────────────────────────────────────────
-# Submit logic
+# Assignment logic
 # ─────────────────────────────────────────────
 if submit:
     asset_id = asset_option.split(" | ")[0]
-    employee_id = employee_option.split(" | ")[0]
+    employee_id, employee_name = employee_option.split(" | ", 1)
 
-    # Safety checks
     if asset_id in assigned_asset_ids:
         st.error("Asset already assigned.")
-        st.stop()
-
-    asset_row = assets_df[assets_df["asset_id"] == asset_id]
-    if asset_row.empty or str(asset_row.iloc[0]["is_active"]).lower() != "true":
-        st.error("Invalid or inactive asset.")
         st.stop()
 
     assignment_id = get_next_assignment_id(assignments_df)
@@ -128,15 +115,17 @@ if submit:
             "assignment_id": assignment_id,
             "asset_id": asset_id,
             "employee_id": employee_id,
+            "employee_name": employee_name,
             "assigned_on": assigned_on.isoformat(),
             "returned_on": "",
             "assignment_status": "Assigned",
             "remarks": remarks,
+            "return_reason": "",
             "created_at": datetime.now().isoformat(),
-        },
+        }
     )
 
-    st.success(f"Asset {asset_id} assigned successfully")
+    st.success(f"Asset {asset_id} assigned to {employee_name}")
     st.rerun()
 
 # ─────────────────────────────────────────────
@@ -145,12 +134,10 @@ if submit:
 st.divider()
 st.subheader("📌 Active Asset Assignments")
 
-if assignments_df.empty:
-    st.info("No assignments yet.")
-else:
+if not assignments_df.empty:
     st.dataframe(
         assignments_df[
             assignments_df["assignment_status"] == "Assigned"
         ].sort_values("assigned_on", ascending=False),
-        use_container_width=True,
+        use_container_width=True
     )
