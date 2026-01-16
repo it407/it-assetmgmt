@@ -2,6 +2,7 @@
 
 import streamlit as st
 from utils.gsheets import read_sheet
+from utils.constants import ROLE_ADMIN
 
 def apply_role_based_navigation():
     user = st.session_state.get("user")
@@ -9,6 +10,10 @@ def apply_role_based_navigation():
         return
 
     role = user["role"]
+
+    # 🔒 CRITICAL: Admin should NEVER have nav filtered
+    if role == ROLE_ADMIN:
+        return
 
     nav_df = read_sheet("role_navigation")
     if nav_df.empty:
@@ -28,9 +33,9 @@ def apply_role_based_navigation():
         & (nav_df["is_visible"])
     ]["page_title"].tolist()
 
-    # 🔐 CRITICAL GUARD — NEVER REMOVE
+    # 🚨 NEVER blank sidebar
     if not allowed_pages:
-        return  # prevents blank sidebar
+        return
 
     selectors = "\n".join(
         [
