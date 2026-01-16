@@ -3,16 +3,17 @@
 import streamlit as st
 from utils.permissions import login_required
 from utils.auth import logout
-from utils.navigation import apply_role_based_navigation
-from utils.constants import ROLE_ADMIN, ROLE_MANAGER
+from utils.constants import ROLE_ADMIN, ROLE_MANAGER, ROLE_USER
 
 st.set_page_config(
     page_title="IT Asset & Subscription Manager",
     layout="wide"
 )
 
+# ─────────────────────────────────────────────
+# Authentication
+# ─────────────────────────────────────────────
 login_required()
-apply_role_based_navigation()
 
 user = st.session_state["user"]
 role = user["role"]
@@ -20,16 +21,36 @@ role = user["role"]
 st.sidebar.success(f"Logged in as {user['email']} ({role})")
 logout()
 
-# Auto-redirect user to My Assets
-if role == "User" and not st.session_state.get("_redirected"):
-    st.session_state["_redirected"] = True
+# ─────────────────────────────────────────────
+# User → redirect to My Assets
+# ─────────────────────────────────────────────
+if role == ROLE_USER and not st.session_state.get("_user_redirect"):
+    st.session_state["_user_redirect"] = True
     st.switch_page("pages/5_My_Assets.py")
 
-st.title("🏢 IT Asset & Subscription Management System")
+# ─────────────────────────────────────────────
+# Admin / Manager → Dashboard Hub
+# ─────────────────────────────────────────────
+st.title("📊 Dashboards")
 
-if role == ROLE_ADMIN:
-    st.markdown("### Welcome Admin 👋")
-elif role == ROLE_MANAGER:
-    st.markdown("### Welcome Manager 👋 (Dashboard Access)")
-else:
-    st.markdown("### Redirecting to My Assets…")
+st.markdown("Select a dashboard to continue:")
+
+col1, col2 = st.columns(2)
+
+with col1:
+    st.subheader("📦 Asset Dashboards")
+
+    if st.button("📊 Asset Summary Dashboard"):
+        st.switch_page("pages/1_Dashboard.py")
+
+    if st.button("👥 User-wise Assigned Assets"):
+        st.switch_page("pages/9_User_Asset_Assignments.py")
+
+with col2:
+    st.subheader("🔐 System Dashboards")
+
+    if role == ROLE_ADMIN:
+        if st.button("🧭 Role Navigation Admin"):
+            st.switch_page("pages/10_Role_Navigation_Admin.py")
+
+st.info("Use the sidebar Logout button to exit.")
