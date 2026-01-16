@@ -17,7 +17,7 @@ admin_only()
 st.title("🖨️ Asset Submission (Unit-Based)")
 
 # ─────────────────────────────────────────────
-# Load existing assets
+# Load assets
 # ─────────────────────────────────────────────
 assets_df = read_sheet(ASSETS_MASTER_SHEET)
 
@@ -25,20 +25,29 @@ if not assets_df.empty:
     assets_df.columns = assets_df.columns.str.strip().str.lower()
 
 # ─────────────────────────────────────────────
-# Helper: Generate next asset_id
-# Format: AST-001
+# SAFE asset_id generator
 # ─────────────────────────────────────────────
 def get_next_asset_ids(existing_df: pd.DataFrame, qty: int):
-    if existing_df.empty:
+    if existing_df.empty or "asset_id" not in existing_df.columns:
         start = 1
     else:
-        existing_df["num"] = (
+        valid_ids = existing_df[
             existing_df["asset_id"]
             .astype(str)
-            .str.replace("AST-", "", regex=False)
-            .astype(int)
-        )
-        start = existing_df["num"].max() + 1
+            .str.startswith("AST-")
+        ].copy()
+
+        if valid_ids.empty:
+            start = 1
+        else:
+            valid_ids["num"] = (
+                valid_ids["asset_id"]
+                .astype(str)
+                .str.replace("AST-", "", regex=False)
+                .str.strip()
+                .astype(int)
+            )
+            start = valid_ids["num"].max() + 1
 
     return [f"AST-{str(i).zfill(3)}" for i in range(start, start + qty)]
 
@@ -63,41 +72,42 @@ with st.form("asset_submission_form"):
         warranty_end = st.date_input("Warranty End Date *")
         is_active = st.selectbox("Is Active", [True, False])
 
-    submitted = st.form_submit_button("➕ Create Assets")
+    submit = st.form_submit_button("➕ Create Assets")
 
 # ─────────────────────────────────────────────
-# Form validation & processing
+# Submit handling
 # ─────────────────────────────────────────────
-if submitted:
+if submit:
     if not asset_name or not category or not location:
-        st.error("Asset Name, Category and Location are required")
+        st.error("Asset Name, Category, and Location are required")
         st.stop()
 
-    now = datetime.today().date().isoformat()
-
+    now = datetime.now().date().isoformat()
     asset_ids = get_next_asset_ids(assets_df, qty)
 
     for asset_id in asset_ids:
-        row = {
-            "asset_id": asset_id,
-            "asset_name": asset_name,
-            "category": category,
-            "brand": brand,
-            "model": model,
-            "purchase_date": purchase_date.isoformat(),
-            "warranty_end": warranty_end.isoformat(),
-            "location": location,
-            "is_active": is_active,
-            "created_at": now,
-            "updated_at": now,
-        }
-        append_row(ASSETS_MASTER_SHEET, row)
+        append_row(
+            ASSETS_MASTER_SHEET,
+            {
+                "asset_id": asset_id,
+                "asset_name": asset_name,
+                "category": category,
+                "brand": brand,
+                "model": model,
+                "purchase_date": purchase_date.isoformat(),
+                "warranty_end": warranty_end.isoformat(),
+                "location": location,
+                "is_active": is_active,
+                "created_at": now,
+                "updated_at": now,
+            },
+        )
 
     st.success(f"{qty} asset units created successfully")
     st.rerun()
 
 # ─────────────────────────────────────────────
-# View existing assets
+# Asset inventory view
 # ─────────────────────────────────────────────
 st.divider()
 st.subheader("📋 Asset Inventory (Unit Level)")
