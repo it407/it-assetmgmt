@@ -6,9 +6,7 @@ import pandas as pd
 from utils.permissions import login_required
 from utils.gsheets import read_sheet
 from utils.export import export_csv
-from utils.constants import ASSET_ASSIGNMENTS_SHEET, ROLE_ADMIN
-from utils.auth import logout
-logout()
+from utils.constants import ASSET_ASSIGNMENTS_SHEET, ASSETS_MASTER_SHEET, ROLE_ADMIN
 
 # ─────────────────────────────────────────────
 # Page protection
@@ -22,18 +20,21 @@ is_admin = user["role"] == ROLE_ADMIN
 st.title("🧑‍💻 My Assets")
 
 # ─────────────────────────────────────────────
-# Load assignments
+# Load data
 # ─────────────────────────────────────────────
 assignments_df = read_sheet(ASSET_ASSIGNMENTS_SHEET)
+assets_df = read_sheet(ASSETS_MASTER_SHEET)
 
 if assignments_df.empty:
     st.info("No asset assignments found.")
     st.stop()
 
-assignments_df.columns = assignments_df.columns.str.strip().str.lower()
+for df in [assignments_df, assets_df]:
+    if not df.empty:
+        df.columns = df.columns.str.strip().str.lower()
 
 # ─────────────────────────────────────────────
-# Filter logic (MANDATORY)
+# STRICT permission filter
 # ─────────────────────────────────────────────
 if not is_admin:
     assignments_df = assignments_df[
@@ -41,7 +42,18 @@ if not is_admin:
     ]
 
 # ─────────────────────────────────────────────
-# Show only current & past assignments
+# Attach asset name & category (READ-ONLY JOIN)
+# ─────────────────────────────────────────────
+assignments_df = assignments_df.merge(
+    assets_df[
+        ["asset_id", "asset_name", "category", "location"]
+    ],
+    on="asset_id",
+    how="left"
+)
+
+# ─────────────────────────────────────────────
+# Split current & history
 # ─────────────────────────────────────────────
 current_assets = assignments_df[
     assignments_df["assignment_status"] == "Assigned"
@@ -64,7 +76,9 @@ else:
             [
                 "assignment_id",
                 "asset_id",
-                "employee_name",
+                "asset_name",
+                "category",
+                "location",
                 "assigned_on",
                 "remarks",
             ]
@@ -88,7 +102,9 @@ else:
             [
                 "assignment_id",
                 "asset_id",
-                "employee_name",
+                "asset_name",
+                "category",
+                "location",
                 "assigned_on",
                 "returned_on",
                 "return_reason",
