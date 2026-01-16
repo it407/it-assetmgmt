@@ -38,7 +38,7 @@ with st.form("cctv_wifi_form"):
 
     with col2:
         password = st.text_input("Password *")
-        ip_address = st.text_input("IP Address")   # ✅ SIMPLE
+        ip_add = st.text_input("IP Address")   # ✅ SIMPLE
         remarks = st.text_area("Remarks")
 
     submit = st.form_submit_button("➕ Save Credential")
@@ -58,7 +58,7 @@ if submit:
             "device_type": device_type,
             "ssid": ssid,
             "password": password,
-            "ip_address": ip_address,   # ✅ SAME AS NAME
+            "ip_add": ip_add,   # ✅ SAME AS NAME
             "remarks": remarks,
             "created_at": datetime.now().isoformat(),
         }
