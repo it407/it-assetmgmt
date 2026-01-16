@@ -14,3 +14,9 @@ def admin_only():
     if st.session_state["user"]["role"] != ROLE_ADMIN:
         st.error("Admin access required")
         st.stop()
+
+def admin_or_manager_only():
+    login_required()
+    if st.session_state["user"]["role"] not in ["Admin", "Manager"]:
+        st.error("Access restricted")
+        st.stop()

@@ -13,7 +13,9 @@ from utils.constants import ASSETS_MASTER_SHEET, ASSET_ASSIGNMENTS_SHEET
 # Page protection
 # ─────────────────────────────────────────────
 login_required()
-admin_only()
+from utils.permissions import admin_or_manager_only
+admin_or_manager_only()
+
 
 st.title("📊 Asset Dashboard")
 

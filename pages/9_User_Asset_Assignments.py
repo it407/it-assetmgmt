@@ -13,7 +13,8 @@ from utils.constants import ASSET_ASSIGNMENTS_SHEET, ASSETS_MASTER_SHEET
 # Page protection
 # ─────────────────────────────────────────────
 login_required()
-admin_only()
+from utils.permissions import admin_or_manager_only
+admin_or_manager_only()
 
 st.title("👥 User-wise Assigned Assets")
 
