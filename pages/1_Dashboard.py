@@ -84,20 +84,27 @@ SELECT
     am.category,
     COUNT(*) AS total_qty,
 
-    /* Inactive / Damaged */
+    /* Inactive / Damaged assets */
     SUM(
         CASE 
-            WHEN am.is_active = FALSE THEN 1 
+            WHEN LOWER(CAST(am.is_active AS VARCHAR)) IN ('false', '0', 'no')
+            THEN 1 
             ELSE 0 
         END
     ) AS out_of_service_qty,
 
-    /* Assigned */
+    /* Currently assigned assets */
     COUNT(a.asset_id) AS total_assigned,
 
-    /* Available */
+    /* Available assets */
     COUNT(*) 
-        - SUM(CASE WHEN am.is_active = FALSE THEN 1 ELSE 0 END)
+        - SUM(
+            CASE 
+                WHEN LOWER(CAST(am.is_active AS VARCHAR)) IN ('false', '0', 'no')
+                THEN 1 
+                ELSE 0 
+            END
+        )
         - COUNT(a.asset_id)
         AS available_qty,
 
