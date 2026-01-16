@@ -12,12 +12,10 @@ def apply_role_based_navigation():
 
     nav_df = read_sheet("role_navigation")
     if nav_df.empty:
-        # ❌ Never hide everything if config missing
-        return
+        return  # fail open
 
     nav_df.columns = nav_df.columns.str.strip().str.lower()
 
-    # Normalize is_visible safely
     nav_df["is_visible"] = (
         nav_df["is_visible"]
         .astype(str)
@@ -27,13 +25,12 @@ def apply_role_based_navigation():
 
     allowed_pages = nav_df[
         (nav_df["role"] == role)
-        & (nav_df["is_visible"] == True)
+        & (nav_df["is_visible"])
     ]["page_title"].tolist()
 
-    # 🔐 SAFETY GUARD
+    # 🔐 CRITICAL GUARD — NEVER REMOVE
     if not allowed_pages:
-        # Do NOT apply CSS → prevents blank sidebar
-        return
+        return  # prevents blank sidebar
 
     selectors = "\n".join(
         [

@@ -13,12 +13,11 @@ logout()
 
 # ─────────────────────────────────────────────
 # Page protection
-# ─────────────────────────────────────────────
+from utils.navigation import apply_role_based_navigation# ─────────────────────────────────────────────
 admin_only()
-from utils.navigation import apply_role_based_navigation
 apply_role_based_navigation()
 
-st.title("Asset")
+st.title("Assets")
 
 # ─────────────────────────────────────────────
 # Load assets

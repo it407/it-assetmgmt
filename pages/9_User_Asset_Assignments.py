@@ -13,12 +13,12 @@ from utils.constants import ASSET_ASSIGNMENTS_SHEET, ASSETS_MASTER_SHEET
 # Page protection
 # ─────────────────────────────────────────────
 from utils.permissions import admin_or_manager_only
-admin_or_manager_only()
 from utils.navigation import apply_role_based_navigation
+admin_or_manager_only()
 apply_role_based_navigation()
 
 
-st.title("User Assets Assignment")
+st.title("User Asset Assignments")
 
 # ─────────────────────────────────────────────
 # Load data

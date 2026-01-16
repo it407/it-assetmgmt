@@ -12,8 +12,8 @@ logout()
 # ─────────────────────────────────────────────
 # Page protection
 # ─────────────────────────────────────────────
-login_required()
-from utils.navigation import apply_role_based_navigation
+from utils.navigation import apply_role_based_navigation# ─────────────────────────────────────────────
+admin_only()
 apply_role_based_navigation()
 
 
