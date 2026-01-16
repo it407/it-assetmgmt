@@ -2,7 +2,7 @@
 
 import streamlit as st
 import pandas as pd
-
+from utils.auth import logout
 from utils.permissions import login_required, admin_only
 from utils.gsheets import read_sheet, write_sheet
 
