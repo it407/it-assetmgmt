@@ -12,7 +12,6 @@ from utils.constants import ASSETS_MASTER_SHEET, ASSET_ASSIGNMENTS_SHEET
 # ─────────────────────────────────────────────
 # Page protection
 # ─────────────────────────────────────────────
-login_required()
 from utils.permissions import admin_or_manager_only
 admin_or_manager_only()
 from utils.navigation import apply_role_based_navigation
