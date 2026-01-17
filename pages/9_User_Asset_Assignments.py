@@ -1,7 +1,4 @@
-# pages/9_User_Asset_Assignments.py
-
 import streamlit as st
-import pandas as pd
 import duckdb
 
 from utils.permissions import admin_or_manager_only
@@ -33,7 +30,6 @@ assignments_df = read_sheet(ASSET_ASSIGNMENTS_SHEET)
 assets_df = read_sheet(ASSETS_MASTER_SHEET)
 employees_df = read_sheet("employee_master")
 
-# Guard
 if assignments_df.empty or assets_df.empty or employees_df.empty:
     st.warning("Required data is missing.")
     st.stop()
@@ -42,7 +38,7 @@ if assignments_df.empty or assets_df.empty or employees_df.empty:
 for df in [assignments_df, assets_df, employees_df]:
     df.columns = df.columns.str.strip().str.lower()
 
-# Keep only active assignments
+# Active assignments only
 assigned_df = assignments_df[
     assignments_df["assignment_status"] == "Assigned"
 ]
@@ -52,7 +48,7 @@ if assigned_df.empty:
     st.stop()
 
 # ─────────────────────────────────────────────
-# Filters UI
+# Filters
 # ─────────────────────────────────────────────
 st.subheader("🔎 Filters")
 
@@ -77,7 +73,7 @@ with col3:
     location = st.selectbox("Location", loc_options)
 
 # ─────────────────────────────────────────────
-# DuckDB Query (SERVER-SIDE FILTERING)
+# DuckDB Query (CORRECT PARAM HANDLING)
 # ─────────────────────────────────────────────
 con = duckdb.connect(database=":memory:")
 
@@ -97,38 +93,36 @@ SELECT
     e.location,
     a.assigned_on
 FROM assignments a
-LEFT JOIN assets am
-    ON a.asset_id = am.asset_id
-LEFT JOIN employees e
-    ON a.employee_id = e.employee_id
+LEFT JOIN assets am ON a.asset_id = am.asset_id
+LEFT JOIN employees e ON a.employee_id = e.employee_id
 WHERE 1=1
 """
 
-params = {}
+params = []
 
 if search_text:
     query += """
     AND (
-        LOWER(a.employee_id) LIKE LOWER(:search)
-        OR LOWER(a.employee_name) LIKE LOWER(:search)
+        LOWER(a.employee_id) LIKE LOWER(?)
+        OR LOWER(a.employee_name) LIKE LOWER(?)
     )
     """
-    params["search"] = f"%{search_text}%"
+    params.extend([f"%{search_text}%", f"%{search_text}%"])
 
 if department != "All":
-    query += " AND e.department = :department"
-    params["department"] = department
+    query += " AND e.department = ?"
+    params.append(department)
 
 if location != "All":
-    query += " AND e.location = :location"
-    params["location"] = location
+    query += " AND e.location = ?"
+    params.append(location)
 
 query += " ORDER BY a.assigned_on DESC"
 
 result_df = con.execute(query, params).df()
 
 # ─────────────────────────────────────────────
-# Result table
+# Results
 # ─────────────────────────────────────────────
 st.subheader("📋 Assigned Assets (Current)")
 
@@ -136,8 +130,4 @@ if result_df.empty:
     st.info("No records found for selected filters.")
 else:
     st.dataframe(result_df, use_container_width=True)
-
-    export_csv(
-        result_df,
-        "user_wise_assigned_assets.csv"
-    )
+    export_csv(result_df, "user_wise_assigned_assets.csv")
