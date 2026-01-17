@@ -3,7 +3,7 @@
 import streamlit as st
 from utils.permissions import login_required
 from utils.auth import logout
-from utils.constants import ROLE_ADMIN, ROLE_MANAGER, ROLE_USER
+from utils.constants import ROLE_ADMIN, ROLE_MANAGER, ROLE_USER, ROLE_HR
 
 # ─────────────────────────────────────────────
 # Page config
@@ -62,6 +62,10 @@ role = user["role"]
 if role == ROLE_USER and not st.session_state.get("_user_redirect"):
     st.session_state["_user_redirect"] = True
     st.switch_page("pages/5_My_Assets.py")
+
+if role == ROLE_HR and not st.session_state.get("_hr_redirect"):
+    st.session_state["_hr_redirect"] = True
+    st.switch_page("pages/11_Attendance_Dashboard.py")
 
 # ─────────────────────────────────────────────
 # Sidebar (AFTER redirect)
