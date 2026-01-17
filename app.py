@@ -5,49 +5,23 @@ from utils.permissions import login_required
 from utils.auth import logout
 from utils.constants import ROLE_ADMIN, ROLE_MANAGER, ROLE_USER, ROLE_HR
 
-# ─────────────────────────────────────────────
-# Page config
-# ─────────────────────────────────────────────
 st.set_page_config(
     page_title="IT Asset & Subscription Manager",
     layout="wide",
-    page_icon="logo.png"  # optional favicon
+    page_icon="logo.png"
 )
 
 # ─────────────────────────────────────────────
-# Global UI Cleanup (ONLY HERE)
+# Global UI Cleanup
 # ─────────────────────────────────────────────
-st.markdown(
-    """
-    <style>
-
-    /* Remove extra top spacing */
-    .block-container {
-        padding-top: 1rem;
-    }
-
-    /* Hide top-right toolbar (GitHub, Fork, Deploy) */
-    header [data-testid="stToolbar"] {
-        display: none;
-    }
-
-    /* Hide bottom-right Share floating button */
-    a[href*="share.streamlit"] {
-        display: none !important;
-    }
-    [data-testid="stShareButton"] {
-        display: none !important;
-    }
-
-    /* Hide footer */
-    footer {
-        visibility: hidden;
-    }
-
-    </style>
-    """,
-    unsafe_allow_html=True
-)
+st.markdown("""
+<style>
+.block-container { padding-top: 1rem; }
+header [data-testid="stToolbar"] { display: none; }
+a[href*="share.streamlit"], [data-testid="stShareButton"] { display: none !important; }
+footer { visibility: hidden; }
+</style>
+""", unsafe_allow_html=True)
 
 # ─────────────────────────────────────────────
 # Authentication
@@ -57,7 +31,7 @@ user = st.session_state["user"]
 role = user["role"]
 
 # ─────────────────────────────────────────────
-# 🔁 EARLY ROLE REDIRECT (CRITICAL)
+# Early Role Redirect
 # ─────────────────────────────────────────────
 if role == ROLE_USER and not st.session_state.get("_user_redirect"):
     st.session_state["_user_redirect"] = True
@@ -68,46 +42,43 @@ if role == ROLE_HR and not st.session_state.get("_hr_redirect"):
     st.switch_page("pages/11_Attendance_Dashboard.py")
 
 # ─────────────────────────────────────────────
-# Sidebar (AFTER redirect)
+# Sidebar
 # ─────────────────────────────────────────────
 st.sidebar.success(f"Logged in as {user['email']} ({role})")
 logout()
 
 # ─────────────────────────────────────────────
-# Hide sidebar navigation (Manager & User)
+# Hide sidebar navigation
 # ─────────────────────────────────────────────
-if role in [ROLE_MANAGER, ROLE_USER]:
-    st.markdown(
-        """
-        <style>
-        [data-testid="stSidebarNav"] {
-            display: none;
-        }
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
+if role in [ROLE_MANAGER, ROLE_USER, ROLE_HR]:
+    st.markdown("""
+    <style>
+    [data-testid="stSidebarNav"] { display: none; }
+    </style>
+    """, unsafe_allow_html=True)
 
 # ─────────────────────────────────────────────
-# Dashboard Hub (Admin & Manager)
+# Dashboard Hub (Admin & Manager ONLY)
 # ─────────────────────────────────────────────
-st.title("📊 Dashboards")
-st.markdown("Select a dashboard to continue:")
+if role in [ROLE_ADMIN, ROLE_MANAGER]:
 
-col1, col2 = st.columns(2)
+    st.title("📊 Dashboards")
+    st.markdown("Select a dashboard to continue:")
 
-with col1:
-    st.subheader("📦 Asset Dashboards")
+    col1, col2 = st.columns(2)
 
-    if st.button("📊 Asset Summary Dashboard"):
-        st.switch_page("pages/1_Dashboard.py")
+    with col1:
+        st.subheader("📦 Asset Dashboards")
 
-    if st.button("👥 User-wise Assigned Assets"):
-        st.switch_page("pages/9_User_Asset_Assignments.py")
+        if st.button("📊 Asset Summary Dashboard"):
+            st.switch_page("pages/1_Dashboard.py")
 
-with col2:
-    st.subheader("🔐 System")
+        if st.button("👥 User-wise Assigned Assets"):
+            st.switch_page("pages/9_User_Asset_Assignments.py")
 
-    if role == ROLE_ADMIN:
-        if st.button("🧭 Role Navigation Admin"):
-            st.switch_page("pages/10_Role_Navigation_Admin.py")
+    with col2:
+        st.subheader("🔐 System")
+
+        if role == ROLE_ADMIN:
+            if st.button("🧭 Role Navigation Admin"):
+                st.switch_page("pages/10_Role_Navigation_Admin.py")
