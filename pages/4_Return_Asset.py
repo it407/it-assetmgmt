@@ -1,27 +1,22 @@
 # pages/4_Return_Asset.py
 
 import streamlit as st
-import pandas as pd
 from datetime import datetime
 
-from utils.permissions import login_required, admin_only
+from utils.permissions import admin_only
 from utils.gsheets import read_sheet, write_sheet
 from utils.constants import ASSET_ASSIGNMENTS_SHEET, ASSETS_MASTER_SHEET
 from utils.ui import apply_global_ui
-apply_global_ui()
-
-from utils.permissions import admin_only
-admin_only()
-
-from utils.navigation import apply_role_based_navigation
-apply_role_based_navigation()
-
 from utils.auth import logout
+
+# ─────────────────────────────────────────────
+# Global UI + Security
+# ─────────────────────────────────────────────
+apply_global_ui()
+admin_only()
 logout()
 
-
-
-st.title("Return Asset")
+st.title("↩️ Return Asset")
 
 # ─────────────────────────────────────────────
 # Load data
@@ -29,37 +24,78 @@ st.title("Return Asset")
 assignments_df = read_sheet(ASSET_ASSIGNMENTS_SHEET)
 assets_df = read_sheet(ASSETS_MASTER_SHEET)
 
-if assignments_df.empty:
+if assignments_df.empty or assets_df.empty:
     st.info("No asset assignments found.")
     st.stop()
 
+# Normalize columns
 for df in [assignments_df, assets_df]:
     df.columns = df.columns.str.strip().str.lower()
 
+# Active assignments only
 active_assignments = assignments_df[
     assignments_df["assignment_status"] == "Assigned"
-]
+].copy()
 
 if active_assignments.empty:
     st.info("No active asset assignments.")
     st.stop()
 
 # ─────────────────────────────────────────────
+# Build searchable labels
+# ─────────────────────────────────────────────
+active_assignments["employee_label"] = (
+    active_assignments["employee_id"].astype(str)
+    + " | "
+    + active_assignments["employee_name"].astype(str)
+)
+
+# Employee options (searchable)
+employee_options = sorted(
+    active_assignments["employee_label"].unique().tolist()
+)
+
+# ─────────────────────────────────────────────
 # Return form
 # ─────────────────────────────────────────────
 with st.form("return_asset_form"):
-    assignment_option = st.selectbox(
-        "Select Assignment",
-        active_assignments.apply(
-            lambda x: (
-                f"{x['assignment_id']} | "
-                f"{x['asset_id']} | "
-                f"{x['employee_id']} | "
-                f"{x['employee_name']}"
-            ),
-            axis=1
-        )
+
+    # 1️⃣ Employee (searchable)
+    selected_employee = st.selectbox(
+        "Select Employee (search by ID or Name) *",
+        employee_options
     )
+
+    emp_id = selected_employee.split(" | ")[0]
+
+    # 2️⃣ Assets assigned to selected employee
+    emp_assets = active_assignments[
+        active_assignments["employee_id"] == emp_id
+    ].copy()
+
+    emp_assets["asset_label"] = (
+        emp_assets["asset_id"].astype(str)
+        + " | "
+        + emp_assets["asset_name"].astype(str)
+    )
+
+    asset_options = sorted(
+        emp_assets["asset_label"].unique().tolist()
+    )
+
+    selected_asset = st.selectbox(
+        "Select Asset *",
+        asset_options
+    )
+
+    asset_id = selected_asset.split(" | ")[0]
+
+    # Find assignment_id safely
+    assignment_row = emp_assets[
+        emp_assets["asset_id"] == asset_id
+    ].iloc[0]
+
+    assignment_id = assignment_row["assignment_id"]
 
     return_reason = st.selectbox(
         "Return Reason *",
@@ -71,37 +107,37 @@ with st.form("return_asset_form"):
         ]
     )
 
-    returned_on = st.date_input("Return Date", value=datetime.today())
+    returned_on = st.date_input(
+        "Return Date",
+        value=datetime.today()
+    )
+
     submit = st.form_submit_button("↩️ Return Asset")
 
 # ─────────────────────────────────────────────
 # Return logic
 # ─────────────────────────────────────────────
 if submit:
-    assignment_id = assignment_option.split(" | ")[0]
 
-    idx = assignments_df[
-        assignments_df["assignment_id"] == assignment_id
-    ].index
+    # Update assignment
+    assignments_df.loc[
+        assignments_df["assignment_id"] == assignment_id,
+        ["assignment_status", "returned_on", "return_reason"]
+    ] = ["Returned", returned_on.isoformat(), return_reason]
 
-    if idx.empty:
-        st.error("Assignment not found.")
-        st.stop()
-
-    asset_id = assignments_df.loc[idx[0], "asset_id"]
-
-    assignments_df.loc[idx, "assignment_status"] = "Returned"
-    assignments_df.loc[idx, "returned_on"] = returned_on.isoformat()
-    assignments_df.loc[idx, "return_reason"] = return_reason
-
+    # If damaged / inactive → mark asset inactive
     if return_reason == "Asset Inactive / Damaged":
         assets_df.loc[
-            assets_df["asset_id"] == asset_id, "is_active"
+            assets_df["asset_id"] == asset_id,
+            "is_active"
         ] = False
-        assets_df.loc[
-            assets_df["asset_id"] == asset_id, "updated_at"
-        ] = datetime.now().date().isoformat()
 
+        assets_df.loc[
+            assets_df["asset_id"] == asset_id,
+            "updated_at"
+        ] = datetime.now().isoformat()
+
+    # Save back to sheets
     write_sheet(ASSET_ASSIGNMENTS_SHEET, assignments_df)
     write_sheet(ASSETS_MASTER_SHEET, assets_df)
 
