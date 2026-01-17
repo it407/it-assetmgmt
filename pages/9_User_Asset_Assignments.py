@@ -1,12 +1,15 @@
+# pages/9_User_Asset_Assignments.py
+
 import streamlit as st
 import pandas as pd
 import duckdb
 
 from utils.permissions import admin_or_manager_only
 from utils.gsheets import read_sheet
-from utils.export import download_csv
+from utils.export import export_csv
 from utils.ui import apply_global_ui
 from utils.auth import logout
+from utils.constants import ASSET_ASSIGNMENTS_SHEET, ASSETS_MASTER_SHEET
 
 # ─────────────────────────────────────────────
 # Global UI + Security
@@ -26,108 +29,115 @@ st.title("👥 User Asset Assignments")
 # ─────────────────────────────────────────────
 # Load data
 # ─────────────────────────────────────────────
-assignments = read_sheet("asset_assignments")
-assets = read_sheet("assets_master")
-employees = read_sheet("employee_master")
+assignments_df = read_sheet(ASSET_ASSIGNMENTS_SHEET)
+assets_df = read_sheet(ASSETS_MASTER_SHEET)
+employees_df = read_sheet("employee_master")
+
+# Guard
+if assignments_df.empty or assets_df.empty or employees_df.empty:
+    st.warning("Required data is missing.")
+    st.stop()
 
 # Normalize columns
-for df in [assignments, assets, employees]:
+for df in [assignments_df, assets_df, employees_df]:
     df.columns = df.columns.str.strip().str.lower()
 
-# Guard empty
-if assignments.empty or assets.empty or employees.empty:
-    st.warning("Required data is missing.")
+# Keep only active assignments
+assigned_df = assignments_df[
+    assignments_df["assignment_status"] == "Assigned"
+]
+
+if assigned_df.empty:
+    st.info("No active asset assignments.")
     st.stop()
 
 # ─────────────────────────────────────────────
 # Filters UI
 # ─────────────────────────────────────────────
+st.subheader("🔎 Filters")
+
 col1, col2, col3 = st.columns(3)
 
 with col1:
     search_text = st.text_input(
-        "🔍 Search Employee (ID or Name)",
+        "Search Employee (ID or Name)",
         placeholder="EMP-001 or Nitesh"
     ).strip()
 
 with col2:
     dept_options = ["All"] + sorted(
-        employees["department"].dropna().unique().tolist()
+        employees_df["department"].dropna().unique().tolist()
     )
     department = st.selectbox("Department", dept_options)
 
 with col3:
     loc_options = ["All"] + sorted(
-        employees["location"].dropna().unique().tolist()
+        employees_df["location"].dropna().unique().tolist()
     )
     location = st.selectbox("Location", loc_options)
 
 # ─────────────────────────────────────────────
-# DuckDB Query (SAFE & EXPLICIT)
+# DuckDB Query (SERVER-SIDE FILTERING)
 # ─────────────────────────────────────────────
+con = duckdb.connect(database=":memory:")
+
+con.register("assignments", assigned_df)
+con.register("assets", assets_df)
+con.register("employees", employees_df)
+
 query = """
 SELECT
     a.assignment_id,
     a.asset_id,
     am.asset_name,
     am.category,
-    e.employee_id,
-    e.employee_name,
+    a.employee_id,
+    a.employee_name,
     e.department,
     e.location,
-    a.assigned_on,
-    a.assignment_status
+    a.assigned_on
 FROM assignments a
-JOIN assets am ON a.asset_id = am.asset_id
-JOIN employees e ON a.employee_id = e.employee_id
-WHERE a.assignment_status = 'Assigned'
+LEFT JOIN assets am
+    ON a.asset_id = am.asset_id
+LEFT JOIN employees e
+    ON a.employee_id = e.employee_id
+WHERE 1=1
 """
 
-conditions = []
 params = {}
 
 if search_text:
-    conditions.append(
-        "(LOWER(e.employee_id) LIKE LOWER(:search) OR LOWER(e.employee_name) LIKE LOWER(:search))"
+    query += """
+    AND (
+        LOWER(a.employee_id) LIKE LOWER(:search)
+        OR LOWER(a.employee_name) LIKE LOWER(:search)
     )
+    """
     params["search"] = f"%{search_text}%"
 
 if department != "All":
-    conditions.append("e.department = :department")
+    query += " AND e.department = :department"
     params["department"] = department
 
 if location != "All":
-    conditions.append("e.location = :location")
+    query += " AND e.location = :location"
     params["location"] = location
 
-if conditions:
-    query += " AND " + " AND ".join(conditions)
+query += " ORDER BY a.assigned_on DESC"
 
-result_df = duckdb.execute(
-    query,
-    params,
-    tables={
-        "assignments": assignments,
-        "assets": assets,
-        "employees": employees
-    }
-).df()
+result_df = con.execute(query, params).df()
 
 # ─────────────────────────────────────────────
-# Display
+# Result table
 # ─────────────────────────────────────────────
-st.subheader("📋 Assigned Assets")
+st.subheader("📋 Assigned Assets (Current)")
 
 if result_df.empty:
-    st.info("No records found.")
+    st.info("No records found for selected filters.")
 else:
     st.dataframe(result_df, use_container_width=True)
 
-    # ─────────────────────────────────────────────
-    # CSV Export
-    # ─────────────────────────────────────────────
-    download_csv(
-        df=result_df,
-        filename="user_asset_assignments.csv",
-        label="⬇️ Download CSV"
+    export_csv(
+        result_df,
+        "user_wise_assigned_assets.csv"
     )
