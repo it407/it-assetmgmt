@@ -1,22 +1,18 @@
-# pages/9_User_Asset_Assignments.py
-
 import streamlit as st
 import pandas as pd
 import duckdb
 
-from utils.permissions import login_required, admin_only
-from utils.gsheets import read_sheet
-from utils.export import export_csv
-from utils.constants import ASSET_ASSIGNMENTS_SHEET, ASSETS_MASTER_SHEET
-
 from utils.permissions import admin_or_manager_only
-from utils.navigation import apply_role_based_navigation
-from utils.auth import logout
+from utils.gsheets import read_sheet
+from utils.export import download_csv
 from utils.ui import apply_global_ui
-apply_global_ui()
+from utils.auth import logout
 
+# ─────────────────────────────────────────────
+# Global UI + Security
+# ─────────────────────────────────────────────
+apply_global_ui()
 admin_or_manager_only()
-apply_role_based_navigation()
 logout()
 
 # ─────────────────────────────────────────────
@@ -25,118 +21,113 @@ logout()
 if st.button("⬅ Back to Dashboard"):
     st.switch_page("app.py")
 
-st.title("User Asset Assignments")
+st.title("👥 User Asset Assignments")
 
 # ─────────────────────────────────────────────
 # Load data
 # ─────────────────────────────────────────────
-assignments_df = read_sheet(ASSET_ASSIGNMENTS_SHEET)
-assets_df = read_sheet(ASSETS_MASTER_SHEET)
-employees_df = read_sheet("employee_master")
-
-if assignments_df.empty:
-    st.info("No asset assignments found.")
-    st.stop()
+assignments = read_sheet("asset_assignments")
+assets = read_sheet("assets_master")
+employees = read_sheet("employee_master")
 
 # Normalize columns
-for df in [assignments_df, assets_df, employees_df]:
-    if not df.empty:
-        df.columns = df.columns.str.strip().str.lower()
+for df in [assignments, assets, employees]:
+    df.columns = df.columns.str.strip().str.lower()
 
-# ─────────────────────────────────────────────
-# Keep only ACTIVE assignments
-# ─────────────────────────────────────────────
-assigned_df = assignments_df[
-    assignments_df["assignment_status"] == "Assigned"
-]
-
-if assigned_df.empty:
-    st.info("No active asset assignments.")
+# Guard empty
+if assignments.empty or assets.empty or employees.empty:
+    st.warning("Required data is missing.")
     st.stop()
 
 # ─────────────────────────────────────────────
-# DuckDB join (SAFE & EXPLICIT)
+# Filters UI
 # ─────────────────────────────────────────────
-con = duckdb.connect(database=":memory:")
+col1, col2, col3 = st.columns(3)
 
-con.register("assignments", assigned_df)
-con.register("assets", assets_df)
-con.register("employees", employees_df)
+with col1:
+    search_text = st.text_input(
+        "🔍 Search Employee (ID or Name)",
+        placeholder="EMP-001 or Nitesh"
+    ).strip()
 
+with col2:
+    dept_options = ["All"] + sorted(
+        employees["department"].dropna().unique().tolist()
+    )
+    department = st.selectbox("Department", dept_options)
+
+with col3:
+    loc_options = ["All"] + sorted(
+        employees["location"].dropna().unique().tolist()
+    )
+    location = st.selectbox("Location", loc_options)
+
+# ─────────────────────────────────────────────
+# DuckDB Query (SAFE & EXPLICIT)
+# ─────────────────────────────────────────────
 query = """
 SELECT
     a.assignment_id,
     a.asset_id,
     am.asset_name,
     am.category,
-    a.employee_id,
-    a.employee_name,
+    e.employee_id,
+    e.employee_name,
     e.department,
-    am.location,
-    a.assigned_on
+    e.location,
+    a.assigned_on,
+    a.assignment_status
 FROM assignments a
-LEFT JOIN assets am
-    ON a.asset_id = am.asset_id
-LEFT JOIN employees e
-    ON a.employee_id = e.employee_id
-ORDER BY a.assigned_on DESC
+JOIN assets am ON a.asset_id = am.asset_id
+JOIN employees e ON a.employee_id = e.employee_id
+WHERE a.assignment_status = 'Assigned'
 """
 
-result_df = con.execute(query).df()
+conditions = []
+params = {}
+
+if search_text:
+    conditions.append(
+        "(LOWER(e.employee_id) LIKE LOWER(:search) OR LOWER(e.employee_name) LIKE LOWER(:search))"
+    )
+    params["search"] = f"%{search_text}%"
+
+if department != "All":
+    conditions.append("e.department = :department")
+    params["department"] = department
+
+if location != "All":
+    conditions.append("e.location = :location")
+    params["location"] = location
+
+if conditions:
+    query += " AND " + " AND ".join(conditions)
+
+result_df = duckdb.execute(
+    query,
+    params,
+    tables={
+        "assignments": assignments,
+        "assets": assets,
+        "employees": employees
+    }
+).df()
 
 # ─────────────────────────────────────────────
-# Filters
+# Display
 # ─────────────────────────────────────────────
-st.subheader("🔎 Filters")
+st.subheader("📋 Assigned Assets")
 
-col1, col2, col3, col4 = st.columns(4)
-
-with col1:
-    emp_id_filter = st.multiselect(
-        "Employee ID",
-        sorted(result_df["employee_id"].dropna().unique().tolist()),
-        default=sorted(result_df["employee_id"].dropna().unique().tolist())
-    )
-
-with col2:
-    emp_name_filter = st.multiselect(
-        "Employee Name",
-        sorted(result_df["employee_name"].dropna().unique().tolist()),
-        default=sorted(result_df["employee_name"].dropna().unique().tolist())
-    )
-
-with col3:
-    dept_filter = st.multiselect(
-        "Department",
-        sorted(result_df["department"].dropna().unique().tolist()),
-        default=sorted(result_df["department"].dropna().unique().tolist())
-    )
-
-with col4:
-    location_filter = st.multiselect(
-        "Location",
-        sorted(result_df["location"].dropna().unique().tolist()),
-        default=sorted(result_df["location"].dropna().unique().tolist())
-    )
-
-filtered_df = result_df[
-    result_df["employee_id"].isin(emp_id_filter)
-    & result_df["employee_name"].isin(emp_name_filter)
-    & result_df["department"].isin(dept_filter)
-    & result_df["location"].isin(location_filter)
-]
-
-# ─────────────────────────────────────────────
-# Result table
-# ─────────────────────────────────────────────
-st.subheader("📋 Assigned Assets (Current)")
-
-if filtered_df.empty:
-    st.warning("No data for selected filters.")
+if result_df.empty:
+    st.info("No records found.")
 else:
-    st.dataframe(
-        filtered_df,
-        use_container_width=True
-    )
+    st.dataframe(result_df, use_container_width=True)
 
-    export_csv(filtered_df, "user_wise_assigned_assets.csv")
+    # ─────────────────────────────────────────────
+    # CSV Export
+    # ─────────────────────────────────────────────
+    download_csv(
+        df=result_df,
+        filename="user_asset_assignments.csv",
+        label="⬇️ Download CSV"
+    )
