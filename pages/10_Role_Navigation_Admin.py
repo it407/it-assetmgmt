@@ -5,6 +5,9 @@ import pandas as pd
 from utils.auth import logout
 from utils.permissions import login_required, admin_only
 from utils.gsheets import read_sheet, write_sheet
+from utils.ui import apply_global_ui
+apply_global_ui()
+
 
 login_required()
 admin_only()

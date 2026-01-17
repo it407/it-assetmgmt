@@ -7,6 +7,9 @@ from utils.permissions import login_required
 from utils.gsheets import read_sheet
 from utils.export import export_csv
 from utils.constants import ASSET_ASSIGNMENTS_SHEET, ASSETS_MASTER_SHEET, ROLE_ADMIN
+from utils.ui import apply_global_ui
+apply_global_ui()
+
 from utils.auth import logout
 
 # ─────────────────────────────────────────────

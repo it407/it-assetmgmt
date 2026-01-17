@@ -12,6 +12,10 @@ from utils.constants import ASSETS_MASTER_SHEET, ASSET_ASSIGNMENTS_SHEET
 from utils.permissions import admin_or_manager_only
 from utils.navigation import apply_role_based_navigation
 from utils.auth import logout
+
+from utils.ui import apply_global_ui
+apply_global_ui()
+
 admin_or_manager_only()
 apply_role_based_navigation()
 logout()

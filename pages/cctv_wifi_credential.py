@@ -5,6 +5,10 @@ from datetime import datetime
 from utils.permissions import login_required, admin_only
 from utils.gsheets import read_sheet, append_row
 from utils.permissions import admin_only
+
+from utils.ui import apply_global_ui
+apply_global_ui()
+
 admin_only()
 
 from utils.navigation import apply_role_based_navigation
