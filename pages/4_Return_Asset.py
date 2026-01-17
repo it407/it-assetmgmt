@@ -25,7 +25,7 @@ assignments_df = read_sheet(ASSET_ASSIGNMENTS_SHEET)
 assets_df = read_sheet(ASSETS_MASTER_SHEET)
 
 if assignments_df.empty or assets_df.empty:
-    st.info("No asset assignments found.")
+    st.info("No asset data available.")
     st.stop()
 
 # Normalize columns
@@ -41,8 +41,15 @@ if active_assignments.empty:
     st.info("No active asset assignments.")
     st.stop()
 
+# Join asset_name safely
+active_assignments = active_assignments.merge(
+    assets_df[["asset_id", "asset_name"]],
+    on="asset_id",
+    how="left"
+)
+
 # ─────────────────────────────────────────────
-# Build searchable labels
+# Build searchable employee list
 # ─────────────────────────────────────────────
 active_assignments["employee_label"] = (
     active_assignments["employee_id"].astype(str)
@@ -50,13 +57,12 @@ active_assignments["employee_label"] = (
     + active_assignments["employee_name"].astype(str)
 )
 
-# Employee options (searchable)
 employee_options = sorted(
     active_assignments["employee_label"].unique().tolist()
 )
 
 # ─────────────────────────────────────────────
-# Return form
+# Return Form
 # ─────────────────────────────────────────────
 with st.form("return_asset_form"):
 
@@ -66,11 +72,11 @@ with st.form("return_asset_form"):
         employee_options
     )
 
-    emp_id = selected_employee.split(" | ")[0]
+    employee_id = selected_employee.split(" | ")[0]
 
-    # 2️⃣ Assets assigned to selected employee
+    # 2️⃣ Assets assigned to that employee
     emp_assets = active_assignments[
-        active_assignments["employee_id"] == emp_id
+        active_assignments["employee_id"] == employee_id
     ].copy()
 
     emp_assets["asset_label"] = (
@@ -79,9 +85,7 @@ with st.form("return_asset_form"):
         + emp_assets["asset_name"].astype(str)
     )
 
-    asset_options = sorted(
-        emp_assets["asset_label"].unique().tolist()
-    )
+    asset_options = sorted(emp_assets["asset_label"].tolist())
 
     selected_asset = st.selectbox(
         "Select Asset *",
@@ -90,7 +94,7 @@ with st.form("return_asset_form"):
 
     asset_id = selected_asset.split(" | ")[0]
 
-    # Find assignment_id safely
+    # Resolve assignment safely
     assignment_row = emp_assets[
         emp_assets["asset_id"] == asset_id
     ].iloc[0]
@@ -115,7 +119,7 @@ with st.form("return_asset_form"):
     submit = st.form_submit_button("↩️ Return Asset")
 
 # ─────────────────────────────────────────────
-# Return logic
+# Return Logic
 # ─────────────────────────────────────────────
 if submit:
 
@@ -123,9 +127,13 @@ if submit:
     assignments_df.loc[
         assignments_df["assignment_id"] == assignment_id,
         ["assignment_status", "returned_on", "return_reason"]
-    ] = ["Returned", returned_on.isoformat(), return_reason]
+    ] = [
+        "Returned",
+        returned_on.isoformat(),
+        return_reason,
+    ]
 
-    # If damaged / inactive → mark asset inactive
+    # If damaged → mark asset inactive
     if return_reason == "Asset Inactive / Damaged":
         assets_df.loc[
             assets_df["asset_id"] == asset_id,
@@ -137,7 +145,7 @@ if submit:
             "updated_at"
         ] = datetime.now().isoformat()
 
-    # Save back to sheets
+    # Persist changes
     write_sheet(ASSET_ASSIGNMENTS_SHEET, assignments_df)
     write_sheet(ASSETS_MASTER_SHEET, assets_df)
 
@@ -145,7 +153,7 @@ if submit:
     st.rerun()
 
 # ─────────────────────────────────────────────
-# Active assignments table
+# Active Assignments View
 # ─────────────────────────────────────────────
 st.divider()
 st.subheader("📌 Currently Assigned Assets")
