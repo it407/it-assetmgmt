@@ -12,10 +12,11 @@ from utils.constants import ASSETS_MASTER_SHEET, ASSET_ASSIGNMENTS_SHEET
 from utils.permissions import admin_or_manager_only
 from utils.auth import logout
 
-from utils.ui import apply_global_ui
-apply_global_ui()
+from utils.permissions import admin_or_manager_only
+from utils.ui import back_to_home_button
 
 admin_or_manager_only()
+back_to_home_button()
 logout()
 
 # ─────────────────────────────────────────────

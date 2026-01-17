@@ -2,13 +2,17 @@
 
 import streamlit as st
 from utils.auth import login
-from utils.constants import ROLE_ADMIN, ROLE_MANAGER, ROLE_HR, ROLE_USER
-import streamlit as st
+from utils.constants import ROLE_ADMIN, ROLE_MANAGER, ROLE_HR
 
 def login_required():
+    """
+    HARD GATE:
+    - If not logged in → show ONLY login UI and STOP the script.
+    - Nothing else (nav/sidebar/pages) should render before login.
+    """
     if "user" not in st.session_state:
         login()
-        st.stop()
+        st.stop()  # 🔒 critical: prevents any further rendering
 
 def admin_only():
     login_required()

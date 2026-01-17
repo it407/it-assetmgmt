@@ -6,10 +6,12 @@ from utils.permissions import login_required, admin_only
 from utils.gsheets import read_sheet, append_row
 from utils.permissions import admin_only
 
-from utils.ui import apply_global_ui
-apply_global_ui()
+from utils.permissions import admin_only
+from utils.ui import back_to_home_button
 
 admin_only()
+back_to_home_button()
+
 
 from utils.auth import logout
 logout()

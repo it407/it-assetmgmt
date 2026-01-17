@@ -5,8 +5,16 @@ from utils.gsheets import read_sheet
 from utils.constants import USERS_SHEET
 
 def login():
+    # If already logged in, do nothing
     if "user" in st.session_state:
         return
+
+    # Hide sidebar navigation during login screen
+    st.markdown("""
+    <style>
+    [data-testid="stSidebarNav"] { display: none; }
+    </style>
+    """, unsafe_allow_html=True)
 
     st.title("🔐 IT Asset Management Login")
 
@@ -20,9 +28,13 @@ def login():
             st.error("User access table is empty")
             st.stop()
 
+        # Normalize columns
+        users.columns = users.columns.str.strip().str.lower()
+
+        # Filter user
         user = users[
-            (users["email"] == email)
-            & (users["password"] == password)
+            (users["email"].astype(str).str.strip() == str(email).strip())
+            & (users["password"].astype(str) == str(password))
             & (users["is_active"].astype(str).str.lower() == "true")
         ]
 
@@ -31,11 +43,12 @@ def login():
             st.stop()
 
         st.session_state["user"] = {
-            "user_id": user.iloc[0]["user_id"],
-            "employee_id": user.iloc[0]["employee_id"],
-            "email": user.iloc[0]["email"],
-            "role": user.iloc[0]["role"]
+            "user_id": str(user.iloc[0]["user_id"]).strip(),
+            "employee_id": str(user.iloc[0]["employee_id"]).strip(),
+            "email": str(user.iloc[0]["email"]).strip(),
+            "role": str(user.iloc[0]["role"]).strip().upper(),  # ✅ makes Hr/HR safe
         }
+
         st.rerun()
 
 def logout():

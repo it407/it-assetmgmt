@@ -6,14 +6,17 @@ from datetime import datetime
 from utils.permissions import admin_only
 from utils.gsheets import read_sheet, write_sheet
 from utils.constants import ASSET_ASSIGNMENTS_SHEET, ASSETS_MASTER_SHEET
-from utils.ui import apply_global_ui
 from utils.auth import logout
 
 # ─────────────────────────────────────────────
 # Global UI + Security
 # ─────────────────────────────────────────────
-apply_global_ui()
+from utils.permissions import admin_only
+from utils.ui import back_to_home_button
+
 admin_only()
+back_to_home_button()
+
 logout()
 
 st.title("↩️ Return Asset")

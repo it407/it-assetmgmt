@@ -2,14 +2,16 @@ import streamlit as st
 import pandas as pd
 
 from utils.permissions import hr_only
-from utils.ui import apply_global_ui
 from utils.auth import logout
 
 # ─────────────────────────────────────────────
 # Global UI + Security
 # ─────────────────────────────────────────────
-apply_global_ui()
+from utils.permissions import hr_only
+from utils.ui import back_to_home_button
+
 hr_only()
+back_to_home_button()
 logout()
 
 st.title("📊 Attendance Dashboard")

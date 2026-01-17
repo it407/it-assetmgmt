@@ -11,8 +11,12 @@ from utils.constants import ASSET_ASSIGNMENTS_SHEET, ASSETS_MASTER_SHEET
 # ─────────────────────────────────────────────
 # Global UI + Security
 # ─────────────────────────────────────────────
-apply_global_ui()
-admin_or_manager_only()
+from utils.permissions import admin_only
+from utils.ui import back_to_home_button
+
+admin_only()
+back_to_home_button()
+
 logout()
 
 # ─────────────────────────────────────────────

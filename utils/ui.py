@@ -1,35 +1,25 @@
 # utils/ui.py
+
 import streamlit as st
+from utils.constants import ROLE_ADMIN, ROLE_MANAGER, ROLE_USER, ROLE_HR
 
-def apply_global_ui():
-    st.markdown(
-        """
-        <style>
+def back_to_home_button():
+    """
+    Standard Back button at top of pages.
+    Redirects user based on role.
+    """
+    user = st.session_state.get("user")
+    if not user:
+        return
 
-        /* Remove extra top spacing */
-        .block-container {
-            padding-top: 1rem;
-        }
+    role = user["role"]
 
-        /* Hide top-right toolbar (GitHub, Fork, Deploy) */
-        header [data-testid="stToolbar"] {
-            display: none;
-        }
+    if st.button("⬅ Back"):
+        if role in [ROLE_ADMIN, ROLE_MANAGER]:
+            st.switch_page("app.py")
+        elif role == ROLE_USER:
+            st.switch_page("pages/5_My_Assets.py")
+        elif role == ROLE_HR:
+            st.switch_page("pages/11_Attendance_Dashboard.py")
 
-        /* Hide bottom-right Share floating button */
-        a[href*="share.streamlit"] {
-            display: none !important;
-        }
-        [data-testid="stShareButton"] {
-            display: none !important;
-        }
-
-        /* Hide footer */
-        footer {
-            visibility: hidden;
-        }
-
-        </style>
-        """,
-        unsafe_allow_html=True
-    )
+        st.stop()  # critical
