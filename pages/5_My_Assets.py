@@ -2,7 +2,6 @@
 
 import streamlit as st
 import pandas as pd
-from utils.navigation import apply_role_based_navigation
 from utils.permissions import login_required
 from utils.gsheets import read_sheet
 from utils.export import export_csv
@@ -16,7 +15,6 @@ from utils.auth import logout
 # Page protection
 # ─────────────────────────────────────────────
 login_required()
-apply_role_based_navigation()
 logout()
 
 user = st.session_state["user"]

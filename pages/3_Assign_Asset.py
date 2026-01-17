@@ -13,9 +13,6 @@ apply_global_ui()
 from utils.permissions import admin_only
 admin_only()
 
-from utils.navigation import apply_role_based_navigation
-apply_role_based_navigation()
-
 from utils.auth import logout
 logout()
 
