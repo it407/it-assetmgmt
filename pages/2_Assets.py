@@ -4,23 +4,20 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 
-from utils.permissions import login_required, admin_only
+from utils.permissions import admin_only
 from utils.gsheets import read_sheet, append_row
 from utils.constants import ASSETS_MASTER_SHEET
 from utils.ui import apply_global_ui
-apply_global_ui()
-
-from utils.permissions import admin_only
-admin_only()
-
-from utils.navigation import apply_role_based_navigation
-apply_role_based_navigation()
-
 from utils.auth import logout
+
+# ─────────────────────────────────────────────
+# Global UI + Security
+# ─────────────────────────────────────────────
+apply_global_ui()
+admin_only()
 logout()
 
-
-st.title("Assets")
+st.title("🖨️ Assets")
 
 # ─────────────────────────────────────────────
 # Load assets
@@ -31,6 +28,24 @@ if not assets_df.empty:
     assets_df.columns = assets_df.columns.str.strip().str.lower()
 
 # ─────────────────────────────────────────────
+# Prepare dropdown options
+# ─────────────────────────────────────────────
+category_options = (
+    sorted(assets_df["category"].dropna().unique().tolist())
+    if not assets_df.empty and "category" in assets_df.columns
+    else []
+)
+
+location_options = (
+    sorted(assets_df["location"].dropna().unique().tolist())
+    if not assets_df.empty and "location" in assets_df.columns
+    else []
+)
+
+category_options = ["Select"] + category_options + ["Other"]
+location_options = ["Select"] + location_options + ["Other"]
+
+# ─────────────────────────────────────────────
 # SAFE asset_id generator
 # ─────────────────────────────────────────────
 def get_next_asset_ids(existing_df: pd.DataFrame, qty: int):
@@ -38,9 +53,7 @@ def get_next_asset_ids(existing_df: pd.DataFrame, qty: int):
         start = 1
     else:
         valid_ids = existing_df[
-            existing_df["asset_id"]
-            .astype(str)
-            .str.startswith("AST-")
+            existing_df["asset_id"].astype(str).str.startswith("AST-")
         ].copy()
 
         if valid_ids.empty:
@@ -50,7 +63,6 @@ def get_next_asset_ids(existing_df: pd.DataFrame, qty: int):
                 valid_ids["asset_id"]
                 .astype(str)
                 .str.replace("AST-", "", regex=False)
-                .str.strip()
                 .astype(int)
             )
             start = valid_ids["num"].max() + 1
@@ -65,12 +77,22 @@ with st.form("asset_submission_form"):
 
     with col1:
         asset_name = st.text_input("Asset Name *")
-        category = st.text_input("Category *")
+
+        category = st.selectbox("Category *", category_options)
+        new_category = ""
+        if category == "Other":
+            new_category = st.text_input("New Category *")
+
         brand = st.text_input("Brand")
 
     with col2:
         model = st.text_input("Model")
-        location = st.text_input("Location *")
+
+        location = st.selectbox("Location *", location_options)
+        new_location = ""
+        if location == "Other":
+            new_location = st.text_input("New Location *")
+
         qty = st.number_input("Quantity *", min_value=1, step=1)
 
     with col3:
@@ -84,11 +106,14 @@ with st.form("asset_submission_form"):
 # Submit handling
 # ─────────────────────────────────────────────
 if submit:
-    if not asset_name or not category or not location:
+    final_category = new_category.strip() if category == "Other" else category
+    final_location = new_location.strip() if location == "Other" else location
+
+    if not asset_name or not final_category or not final_location:
         st.error("Asset Name, Category, and Location are required")
         st.stop()
 
-    now = datetime.now().date().isoformat()
+    now = datetime.now().isoformat()
     asset_ids = get_next_asset_ids(assets_df, qty)
 
     for asset_id in asset_ids:
@@ -97,12 +122,12 @@ if submit:
             {
                 "asset_id": asset_id,
                 "asset_name": asset_name,
-                "category": category,
+                "category": final_category,
                 "brand": brand,
                 "model": model,
                 "purchase_date": purchase_date.isoformat(),
                 "warranty_end": warranty_end.isoformat(),
-                "location": location,
+                "location": final_location,
                 "is_active": is_active,
                 "created_at": now,
                 "updated_at": now,
